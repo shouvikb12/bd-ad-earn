@@ -8,9 +8,9 @@ app.use(cors());
 app.use(express.json());
 
 // ১. বট টোকেন (BotFather থেকে পাওয়া টোকেন)
-const BOT_TOKEN = process.env.BOT_TOKEN || '8805694666:AAHlSXonYbrKWgMO08T4K6PVI2KYzqKKYSHQ'
+const BOT_TOKEN = process.env.BOT_TOKEN || '8805694666:AAHlSXonYbrKWgMO08T4K6PVI2KYzqKKYSg';
 
-// ২. অ্যাডমিন পাসওয়ার্ড (/admin এ ঢোকার জন্য)
+// ২. অ্যাডমিন পাসওয়ার্ড (/admin এ লগইন করার জন্য)
 const ADMIN_PASSWORD = "adminpass123";
 
 const db = new sqlite3.Database('./database.sqlite');
@@ -55,7 +55,7 @@ db.serialize(() => {
   `);
 });
 
-// টেলিগ্রাম সিকিউরিটি ভ্যালিডেশন মিডলওয়্যার
+// টেলিগ্রাম সিকিউরিটি ভ্যালিডেশন
 function verifyTelegramData(req, res, next) {
   const initData = req.headers['x-telegram-init-data'];
   if (!initData) return res.status(401).json({ error: 'Unauthorized' });
@@ -94,7 +94,7 @@ function getTodayDate() {
 const TASKS = [
   { id: 'task_channel_1', title: 'আমাদের অফিশিয়াল চ্যানেলে জয়েন করুন', link: 'https://t.me/CryptoDropToday', reward: 1.00 },
   { id: 'task_channel_2', title: 'পার্টনার টেলিগ্রাম গ্রুপে জয়েন করুন', link: 'https://t.me/telegram', reward: 0.50 },
-  { id: 'task_youtube_1', title: 'ইউটিউব চ্যানেল সাবস্ক্রাইব করুন', link: 'https://www.youtube.com/@gaming_craze04', reward: 0.50 }
+  { id: 'task_youtube_1', title: 'ইউটিউব চ্যানেল সাবস্ক্রাইব করুন', link: 'https://youtube.com/@gaming_craze04', reward: 0.50 }
 ];
 
 // ====================================================================
@@ -111,10 +111,8 @@ app.get('/', (req, res) => {
   <!-- Telegram WebApp SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-  <!-- ======================================================== -->
-  <!-- Adsgram SDK (Adsgram এপ্রুভাল পাওয়ার পর নিচের লাইনটি আনকমেন্ট করবেন) -->
-  <!-- <script src="https://sad.adsgram.ai/js/sad.min.js"></script> -->
-  <!-- ======================================================== -->
+  <!-- Adsgram SDK সক্রিয় করা হলো -->
+  <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
 
   <style>
     :root {
@@ -290,19 +288,19 @@ app.get('/', (req, res) => {
 
   <script>
     // ========================================================
-    // আপনার কনফিগারেশন সেটিংস
+    // আপনার কনফিগারেশন সেটিংস (ব্লক আইডি ৪৬৩২১ বসানো হয়েছে)
     // ========================================================
-    const BOT_USERNAME = 'BDAdEarnBot'; // আপনার সঠিক বটের ইউজারনেম
-    const ADSGRAM_BLOCK_ID = '';        // Adsgram এপ্রুভালের পর এখানে ব্লক আইডি বসাবেন
+    const BOT_USERNAME = 'BDAdEarnBot'; 
+    const ADSGRAM_BLOCK_ID = '46321'; 
     // ========================================================
 
     const tg = window.Telegram?.WebApp;
     if (tg) { tg.expand(); tg.ready(); }
 
     const initData = tg?.initData || '';
-    const userId = tg?.initDataUnsafe?.user?.id || 'demo';
+    coKYzqKKYSg' = tg?.initDataUnsafe?.user?.id || 'demo';
 
-    // সরাসরি মিনি অ্যাপ লিঙ্ক ফরম্যাট
+    // সরাসরি মিনি অ্যাপ ডিপ-লিংক
     document.getElementById('refLink').value = 'https://t.me/' + BOT_USERNAME + '/app?startapp=' + userId;
 
     async function syncUserData() {
@@ -324,28 +322,28 @@ app.get('/', (req, res) => {
       } catch (e) { console.error(e); }
     }
 
-    // অ্যাড দেখানো এবং কুলডাউন
+    // Adsgram Rewarded Video অ্যাড প্লেয়ার
     function triggerAd() {
       const adBtn = document.getElementById('adBtn');
 
-      if (ADSGRAM_BLOCK_ID && window.Adsgram) {
+      if (window.Adsgram) {
         const AdController = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
         AdController.show()
           .then(() => {
+            // পুরো ভিডিও শেষ হলে রিওয়ার্ড পাবে
             claimReward();
             startAdCooldown(adBtn);
           })
-          .catch(() => {
-            alert('পুরো বিজ্ঞাপনটি দেখলে তবেই রিওয়ার্ড পাবেন!');
+          .catch((result) => {
+            // ইউজার ভিডিও কেটে দিলে বা অ্যাড না থাকলে
+            alert('পুরো ভিডিও বিজ্ঞাপনটি দেখলে তবেই ব্যালেন্স যোগ হবে!');
           });
-        return;
+      } else {
+        alert('বিজ্ঞাপন লোড হতে পারেনি। নেটওয়ার্ক চেক করে আবার চেষ্টা করুন।');
       }
-
-      // টেস্ট মোড: সরাসরি পয়েন্ট যোগ
-      claimReward();
-      startAdCooldown(adBtn);
     }
 
+    // ৫ সেকেন্ডের অ্যান্টি-স্প্যাম কুলডাউন
     function startAdCooldown(btn) {
       let seconds = 5;
       btn.disabled = true;
@@ -552,7 +550,7 @@ app.post('/api/reward', verifyTelegramData, (req, res) => {
       (updateErr) => {
         if (updateErr) return res.status(500).json({ error: 'Reward Error' });
 
-        // বন্ধু ৪০টি অ্যাড দেখলে রেফারকারী পাবে ১ টাকা
+        // রেফার বোনাস: বন্ধু ৪০টি অ্যাড দেখলে রেফারকারী পাবে ১ টাকা
         if (user.total_ads + 1 === 40 && user.referred_by && user.referral_rewarded === 0) {
           db.run('UPDATE users SET points = points + 1.00 WHERE telegram_id = ?', [user.referred_by]);
           db.run('UPDATE users SET referral_rewarded = 1 WHERE telegram_id = ?', [userId]);
@@ -626,7 +624,7 @@ app.post('/api/withdraw', verifyTelegramData, (req, res) => {
 });
 
 // ====================================================================
-// ৩. অ্যাডমিন কন্ট্রোল এপিআই ও ড্যাশবোর্ড
+// ৩. অ্যাডমিন কন্ট্রোল এপিআই ও ড্যাশবোর্ড (/admin)
 // ====================================================================
 
 app.get('/api/admin/withdrawals', (req, res) => {
