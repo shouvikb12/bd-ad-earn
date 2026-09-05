@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>BD Ad Earn</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #0b132b;
+      color: #ffffff;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .header { text-align: center; padding: 6px 0; }
+    .header h1 { font-size: 20px; color: #48cae4; }
+    .card {
+      background: #1c2541;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      border: 1px solid #3a506b;
+    }
+    .balance-label { font-size: 13px; color: #90e0ef; }
+    .balance-num { font-size: 32px; font-weight: bold; margin: 6px 0; color: #00f5d4; }
+    .stats { font-size: 12px; color: #a0aec0; margin-bottom: 12px; }
+    button {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .btn-ad { background: #00b4d8; color: #fff; }
+    .btn-withdraw { background: #2ec4b6; color: #0b132b; margin-top: 10px; }
+    .btn-copy { background: #ffb703; color: #000; margin-top: 8px; }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      border-radius: 6px;
+      border: 1px solid #4a5568;
+      background: #0b132b;
+      color: #fff;
+      font-size: 14px;
+    }
+    .note { font-size: 11px; color: #cbd5e1; margin-top: 6px; line-height: 1.4; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>বিডি অ্যাড আর্ন (BD Ad Earn)</h1>
+  </div>
+
+  <div class="card" style="text-align: center;">
+    <div class="balance-label">বর্তমান ব্যালেন্স</div>
+    <div class="balance-num"><span id="balance">0.00</span> ৳</div>
+    <div class="stats">দেখা মোট অ্যাড: <span id="adCount">0</span> টি</div>
+    <button class="btn-ad" onclick="playAd()">📺 অ্যাড দেখুন (+০.১০ ৳)</button>
+  </div>
+
+  <div class="card">
+    <h3 style="font-size: 15px; color: #ffb703;">🎁 রেফার বোনাস (৫ ৳)</h3>
+    <p class="note">শর্ত: বন্ধু আপনার লিংকে জয়েন করে <b>২০টি অ্যাড</b> দেখলে আপনি ৫ টাকা পাবেন।</p>
+    <input type="text" id="refLink" readonly />
+    <button class="btn-copy" onclick="copyLink()">রেফার লিংক কপি করুন</button>
+  </div>
+
+  <div class="card">
+    <h3 style="font-size: 15px; color: #2ec4b6;">💸 টাকা উত্তোলন (মিনিমাম ৫০ ৳)</h3>
+    <select id="method">
+      <option value="bkash">বিকাশ (Personal)</option>
+      <option value="nagad">নগদ (Personal)</option>
+      <option value="upay">উপায় (Personal)</option>
+    </select>
+    <input type="tel" id="phone" placeholder="নম্বর লিখুন (০১xxxxxxxxx)" />
+    <input type="number" id="amount" placeholder="টাকার পরিমাণ (মিনিমাম ৫০)" />
+    <button class="btn-withdraw" onclick="submitWithdraw()">উত্তোলন রিকোয়েস্ট পাঠান</button>
+    <p class="note">রিকোয়েস্টের ২৪-৪৮ ঘণ্টার মধ্যে ম্যানুয়ালি যাচাই করে পেমেন্ট পাঠানো হয়।</p>
+  </div>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    if (tg) tg.expand();
+
+    const initData = tg?.initData || '';
+    const userId = tg?.initDataUnsafe?.user?.id || 'demo';
+
+    // Put your bot's exact username here
+    const BOT_USERNAME = 'BDAdEarnOfficial_bot'; 
+    document.getElementById('refLink').value = `https://t.me/${BOT_USERNAME}?start=${userId}`;
+
+    async function syncUserData() {
+      try {
+        const res = await fetch('/api/user', {
+          headers: { 'x-telegram-init-data': initData }
+        });
+        const data = await res.json();
+        if (data.points !== undefined) {
+          document.getElementById('balance').innerText = parseFloat(data.points).toFixed(2);
+          document.getElementById('adCount').innerText = data.ads_watched || 0;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function playAd() {
+      // Direct simulation if testing; triggers ad reward
+      claimReward();
+    }
+
+    async function claimReward() {
+      try {
+        const res = await fetch('/api/reward', {
+          method: 'POST',
+          headers: { 'x-telegram-init-data': initData }
+        });
+        const data = await res.json();
+        if (data.success) syncUserData();
+      } catch (e) {
+        alert('অ্যাড লোড হয়নি, আবার চেষ্টা করুন।');
+      }
+    }
+
+    async function submitWithdraw() {
+      const method = document.getElementById('method').value;
+      const phone = document.getElementById('phone').value.trim();
+      const amount = parseFloat(document.getElementById('amount').value);
+
+      if (!phone || isNaN(amount)) return alert('সঠিক তথ্য দিন।');
+      if (amount < 50) return alert('সর্বনিম্ন উত্তোলন ৫০ টাকা।');
+
+      try {
+        const res = await fetch('/api/withdraw', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-telegram-init-data': initData
+          },
+          body: JSON.stringify({ method, phone, amount })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('রিকোয়েস্ট সফল হয়েছে!');
+          syncUserData();
+        } else {
+          alert(data.error || 'ব্যর্থ হয়েছে');
+        }
+      } catch (e) {
+        alert('সার্ভার সমস্যা');
+      }
+    }
+
+    function copyLink() {
+      const copyText = document.getElementById('refLink');
+      navigator.clipboard.writeText(copyText.value);
+      alert('রেফার লিংক কপি হয়েছে!');
+    }
+
+    syncUserData();
+  </script>
+</body>
+</html>
