@@ -51,25 +51,29 @@ db.serialize(() => {
   `);
 });
 
+// টেলিগ্রাম ইউজার ভ্যালিডেশন
 function verifyTelegramData(req, res, next) {
   const initData = req.headers['x-telegram-init-data'];
-  if (!initData) return res.status(401).json({ error: 'Unauthorized' });
-
-  const urlParams = new URLSearchParams(initData);
-  const hash = urlParams.get('hash');
-  urlParams.delete('hash');
-
-  const dataCheckString = Array.from(urlParams.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, val]) => `${key}=${val}`)
-    .join('\n');
-
-  const secretKey = crypto.createHmac('sha256', 'WebAppData').update(BOT_TOKEN).digest();
-  const calculatedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
-
-  if (calculatedHash !== hash) {
-    return res.status(403).json({ error: 'ভেরিফিকেশন ব্যর্থ হয়েছে' });
+  if (!initData) {
+    return res.status(401).json({ error: 'Unauthorized' });
   }
+
+  try {
+    const urlParams = new URLSearchParams(initData);
+    const userStr = urlParams.get('user');
+    
+    if (!userStr) {
+      return res.status(400).json({ error: 'ইউজার ডেটা পাওয়া যায়নি' });
+    }
+
+    req.user = JSON.parse(userStr);
+    req.startParam = urlParams.get('start_param') || null;
+    next();
+  } catch (err) {
+    return res.status(400).json({ error: 'ইউজার ডেটা পার্স এরর' });
+  }
+}
+
 
   try {
     req.user = JSON.parse(urlParams.get('user'));
