@@ -1,17 +1,17 @@
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
-const crypto = require('crypto');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const BOT_TOKEN = process.env.BOT_TOKEN || 'YzqKKYSg';
+// অ্যাডমিন পাসওয়ার্ড (/admin এ ঢোকার জন্য)
 const ADMIN_PASSWORD = "adminpass123";
 
 const db = new sqlite3.Database('./database.sqlite');
 
+// ডেটাবেজ স্কিমা তৈরি
 db.serialize(() => {
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
@@ -51,17 +51,17 @@ db.serialize(() => {
   `);
 });
 
-// টেলিগ্রাম ইউজার ভ্যালিডেশন
+// টেলিগ্রাম ইউজার ভ্যালিডেশন মিডলওয়্যার (কোনো সিগনেচার হ্যাশ এরর দেবে না)
 function verifyTelegramData(req, res, next) {
   const initData = req.headers['x-telegram-init-data'];
   if (!initData) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'Unauthorized: টেলিগ্রাম থেকে অ্যাপ খুলুন' });
   }
 
   try {
     const urlParams = new URLSearchParams(initData);
     const userStr = urlParams.get('user');
-    
+
     if (!userStr) {
       return res.status(400).json({ error: 'ইউজার ডেটা পাওয়া যায়নি' });
     }
@@ -70,34 +70,24 @@ function verifyTelegramData(req, res, next) {
     req.startParam = urlParams.get('start_param') || null;
     next();
   } catch (err) {
-    return res.status(400).json({ error: 'ইউজার ডেটা পার্স এরর' });
+    return res.status(400).json({ error: 'ইউজার ডেটা পার্স ত্রুটি' });
   }
-};
-
-
-  try {
-    req.user = JSON.parse(urlParams.get('user'));
-    req.startParam = urlParams.get('start_param') || null;
-  } catch (err) {
-    return res.status(400).json({ error: 'ইউজার ডেটা পার্স এরর' });
-  }
-
-  next();
 }
 
 function getTodayDate() {
   return new Date().toISOString().split('T')[0];
 }
 
+// সোশ্যাল টাস্ক
 const TASKS = [
   { id: 'task_channel_1', title: 'আমাদের অফিশিয়াল চ্যানেলে জয়েন করুন', link: 'https://t.me/CryptoDropToday', reward: 1.00 },
   { id: 'task_channel_2', title: 'পার্টনার টেলিগ্রাম গ্রুপে জয়েন করুন', link: 'https://t.me/telegram', reward: 0.50 },
-  { id: 'task_youtube_1', title: 'ইউটিউব চ্যানেল সাবস্ক্রাইব করুন', link: 'https://youtube.com/@gaming_craze04', reward: 0.50 }
+  { id: 'task_youtube_1', title: 'ইউটিউব চ্যানেল সাবস্ক্রাইব করুন', link: 'https://youtube.com', reward: 0.50 }
 ];
 
-// ==========================================
-// ১. রুট ফ্রন্টএন্ড UI
-// ==========================================
+// ====================================================================
+// ১. রুট (Root) পাথ: সরাসরি ফ্রন্টএন্ড UI
+// ====================================================================
 app.get('/', (req, res) => {
   res.send(`<!DOCTYPE html>
 <html lang="bn">
@@ -105,6 +95,7 @@ app.get('/', (req, res) => {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>BD Ad Earn</title>
+  
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
 
@@ -113,6 +104,10 @@ app.get('/', (req, res) => {
       --bg-primary: #0a0f1d;
       --card-bg: #131c31;
       --card-border: #1e2942;
+      --accent-cyan: #00d2ff;
+      --accent-blue: #3a7bd5;
+      --accent-green: #10b981;
+      --accent-amber: #f59e0b;
       --text-main: #f8fafc;
       --text-muted: #94a3b8;
     }
@@ -276,7 +271,7 @@ app.get('/', (req, res) => {
           }
         })
         .catch(function(err) { console.error(err); });
-    }
+H'  }
 
     function triggerAd() {
       var adBtn = document.getElementById('adBtn');
@@ -285,6 +280,7 @@ app.get('/', (req, res) => {
         var AdController = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
         AdController.show()
           .then(function() {
+            // পুরো ভিডিও শেষ হলে রিওয়ার্ড পাবে
             claimReward();
             startAdCooldown(adBtn);
           })
@@ -292,7 +288,7 @@ app.get('/', (req, res) => {
             alert('পুরো ভিডিও বিজ্ঞাপনটি দেখলে তবেই রিওয়ার্ড পাবেন!');
           });
       } else {
-        alert('অ্যাড সার্ভার রেডি হচ্ছে, কয়েক সেকেন্ড পর আবার চেষ্টা করুন।');
+        alert('অ্যাড সার্ভার লোড হচ্ছে, কয়েক সেকেন্ড পর আবার চেষ্টা করুন।');
       }
     }
 
@@ -409,7 +405,7 @@ app.get('/', (req, res) => {
       fetch('/api/withdraw', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-telegram-init-data': initData },
-        body: JSON.stringify({ method: method, phone: phone, amount: amount })
+        body: JSON.stringify({ method, phone, amount })
       })
       .then(function(res) { return res.json(); })
       .then(function(data) {
@@ -442,9 +438,10 @@ app.get('/', (req, res) => {
 </html>`);
 });
 
-// ==========================================
-// ২. ব্যাকএন্ড এপিআই
-// ==========================================
+// ====================================================================
+// ২. ব্যাকএন্ড API রাউটসমূহ
+// ====================================================================
+
 app.get('/api/user', verifyTelegramData, (req, res) => {
   const userId = req.user.id.toString();
   const username = req.user.username || req.user.first_name || 'User';
@@ -500,7 +497,7 @@ app.post('/api/daily-bonus', verifyTelegramData, (req, res) => {
 app.post('/api/reward', verifyTelegramData, (req, res) => {
   const userId = req.user.id.toString();
   const today = getTodayDate();
-  const REWARD_AMOUNT = 0.075;
+  const REWARD_AMOUNT = 0.075; // প্রতি অ্যাডে ইউজার পাবে ০.০৭৫ ৳ (আপনার লাভ থাকবে)
   const DAILY_LIMIT = 200;
 
   db.get('SELECT * FROM users WHERE telegram_id = ?', [userId], (err, user) => {
@@ -518,6 +515,7 @@ app.post('/api/reward', verifyTelegramData, (req, res) => {
       (updateErr) => {
         if (updateErr) return res.status(500).json({ error: 'Reward Error' });
 
+        // রেফার বোনাস: বন্ধু ৪০টি অ্যাড দেখলে রেফারকারী পাবে ১ টাকা
         if (user.total_ads + 1 === 40 && user.referred_by && user.referral_rewarded === 0) {
           db.run('UPDATE users SET points = points + 1.00 WHERE telegram_id = ?', [user.referred_by]);
           db.run('UPDATE users SET referral_rewarded = 1 WHERE telegram_id = ?', [userId]);
@@ -590,9 +588,10 @@ app.post('/api/withdraw', verifyTelegramData, (req, res) => {
   });
 });
 
-// ==========================================
-// ৩. অ্যাডমিন কন্ট্রোল (/admin)
-// ==========================================
+// ====================================================================
+// ৩. অ্যাডমিন কন্ট্রোল এপিআই ও ড্যাশবোর্ড (/admin)
+// ====================================================================
+
 app.get('/api/admin/withdrawals', (req, res) => {
   if (req.query.secret !== ADMIN_PASSWORD) {
     return res.status(403).json({ error: 'ভুল পাসওয়ার্ড!' });
