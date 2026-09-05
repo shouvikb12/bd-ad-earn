@@ -48,7 +48,6 @@ db.serialize(() => {
   `);
 });
 
-// ইউজার ভ্যালিডেশন (টেলিগ্রাম বা সাধারণ ব্রাউজার উভয়ের জন্য উন্মুক্ত)
 function getSafeUser(req, res, next) {
   const initData = req.headers['x-telegram-init-data'] || '';
   if (initData) {
@@ -63,7 +62,6 @@ function getSafeUser(req, res, next) {
     } catch (e) {}
   }
   
-  // ব্যাকআপ ফলব্যাক ইউজার (যাতে কোনো অবস্থায় এরর দিয়ে আটকে না যায়)
   req.user = { id: '562005', first_name: 'User', username: 'User' };
   req.startParam = null;
   next();
@@ -80,7 +78,7 @@ const TASKS = [
 ];
 
 // ==========================================
-// ১. রুট ফ্রন্টএন্ড UI
+// ১. রুট ফ্রন্টএন্ড UI (মিনি অ্যাপ)
 // ==========================================
 app.get('/', (req, res) => {
   res.send(`<!DOCTYPE html>
@@ -97,8 +95,6 @@ app.get('/', (req, res) => {
       --bg-primary: #0a0f1d;
       --card-bg: #131c31;
       --card-border: #1e2942;
-      --accent-cyan: #00d2ff;
-      --accent-blue: #3a7bd5;
       --text-main: #f8fafc;
       --text-muted: #94a3b8;
     }
@@ -276,7 +272,6 @@ app.get('/', (req, res) => {
               startAdCooldown(adBtn);
             })
             .catch(function(err) {
-              // যদি অ্যাড লোড না হয় তবে সরাসরি রিওয়ার্ড দেওয়া হবে
               claimReward();
               startAdCooldown(adBtn);
             });
@@ -284,7 +279,6 @@ app.get('/', (req, res) => {
         } catch(e) {}
       }
 
-      // ফলব্যাক: সরাসরি পয়েন্ট যোগ
       claimReward();
       startAdCooldown(adBtn);
     }
@@ -436,7 +430,92 @@ app.get('/', (req, res) => {
 });
 
 // ==========================================
-// ২. ব্যাকএন্ড এপিআই
+// ২. সরাসরি ভিজ্যুয়াল অ্যাডমিন ড্যাশবোর্ড (/admin)
+// ==========================================
+app.get('/admin', (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>অ্যাডমিন প্যানেল - BD Ad Earn</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #080d1a; color: #fff; padding: 16px; margin: 0; }
+    h2 { font-size: 20px; color: #38bdf8; margin-bottom: 16px; }
+    .input-box { display: flex; gap: 8px; margin-bottom: 16px; }
+    input { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #1e293b; background: #0f172a; color: #fff; font-size: 14px; }
+    button { padding: 12px 18px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+    .btn-load { background: #38bdf8; color: #000; }
+    .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+    .card p { margin: 6px 0; font-size: 13px; }
+    .status-pending { color: #f59e0b; font-weight: bold; }
+    .status-successful { color: #10b981; font-weight: bold; }
+    .btn-action { background: #10b981; color: #fff; width: 100%; margin-top: 8px; padding: 10px; border-radius: 6px; font-weight: bold; border: none; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h2>🔐 উইথড্রল অ্যাডমিন কন্ট্রোল</h2>
+  <div class="input-box">
+    <input type="password" id="pass" placeholder="অ্যাডমিন পাসওয়ার্ড লিখুন" value="adminpass123">
+    <button class="btn-load" onclick="loadWithdrawals()">ডাটা লোড করুন</button>
+  </div>
+
+  <div id="list">পাসওয়ার্ড দিয়ে লোড বাটনে চাপ দিন...</div>
+
+  <script>
+    function loadWithdrawals() {
+      var pass = document.getElementById('pass').value;
+      fetch('/api/admin/withdrawals?secret=' + encodeURIComponent(pass))
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) return alert(data.error);
+          var container = document.getElementById('list');
+          if (data.length === 0) {
+            container.innerHTML = '<p style="color:#94a3b8;">কোনো উইথড্র রিকোয়েস্ট পেন্ডিং নেই।</p>';
+            return;
+          }
+          container.innerHTML = '';
+          data.forEach(function(item) {
+            var btn = item.status === 'pending'
+              ? '<button class="btn-action" onclick="markDone(' + item.id + ')">পেমেন্ট কমপ্লিট করুন (Mark Success)</button>'
+              : '';
+            container.innerHTML += '<div class="card">' +
+              '<p><b>আইডি:</b> #' + item.id + ' | <b>ইউজার টেলিগ্রাম আইডি:</b> ' + item.telegram_id + '</p>' +
+              '<p><b>মেথড:</b> ' + item.method.toUpperCase() + ' | <b>নম্বর:</b> ' + item.phone + '</p>' +
+              '<p><b>পরিমাণ:</b> ' + item.amount_bdt + ' ৳ | <b>স্ট্যাটাস:</b> <span class="status-' + item.status + '">' + item.status + '</span></p>' +
+              btn + '</div>';
+          });
+        })
+        .catch(function() { alert('ডাটা লোড হতে পারেনি!'); });
+    }
+
+    function markDone(id) {
+      var pass = document.getElementById('pass').value;
+      fetch('/api/admin/update-status', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ secret: pass, id: id, status: 'successful' })
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        if (data.success) {
+          alert('পেমেন্ট সফল হিসেবে আপডেট হয়েছে!');
+          loadWithdrawals();
+        } else {
+          alert(data.error);
+        }
+      });
+    }
+
+    // পেজ লোড হলেই স্বয়ংক্রিয়ভাবে লোড নেবে
+    loadWithdrawals();
+  </script>
+</body>
+</html>`);
+});
+
+// ==========================================
+// ৩. ব্যাকএন্ড API রাউটসমূহ
 // ==========================================
 app.get('/api/user', getSafeUser, (req, res) => {
   const userId = req.user.id.toString();
@@ -583,7 +662,7 @@ app.post('/api/withdraw', getSafeUser, (req, res) => {
   });
 });
 
-// অ্যাডমিন প্যানেল API
+// অ্যাডমিন কন্ট্রোল এপিআই
 app.get('/api/admin/withdrawals', (req, res) => {
   if (req.query.secret !== ADMIN_PASSWORD) {
     return res.status(403).json({ error: 'ভুল পাসওয়ার্ড!' });
