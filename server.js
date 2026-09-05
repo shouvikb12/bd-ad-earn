@@ -7,15 +7,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ১. বট টোকেন (BotFather থেকে পাওয়া টোকেন)
-const BOT_TOKEN = process.env.BOT_TOKEN || '8805694666:AAHlSXonYbrKWgMO08T4K6PVI2KYzqKKYSg';
-
-// ২. অ্যাডমিন পাসওয়ার্ড (/admin এ লগইন করার জন্য)
+const BOT_TOKEN = process.env.BOT_TOKEN || 'YzqKKYSg';
 const ADMIN_PASSWORD = "adminpass123";
 
 const db = new sqlite3.Database('./database.sqlite');
 
-// ডেটাবেজ স্কিমা তৈরি
 db.serialize(() => {
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
@@ -55,7 +51,6 @@ db.serialize(() => {
   `);
 });
 
-// টেলিগ্রাম সিকিউরিটি ভ্যালিডেশন
 function verifyTelegramData(req, res, next) {
   const initData = req.headers['x-telegram-init-data'];
   if (!initData) return res.status(401).json({ error: 'Unauthorized' });
@@ -80,7 +75,7 @@ function verifyTelegramData(req, res, next) {
     req.user = JSON.parse(urlParams.get('user'));
     req.startParam = urlParams.get('start_param') || null;
   } catch (err) {
-    return res.status(400).json({ error: 'ইউজার ডেটা পার্স ত্রুটি' });
+    return res.status(400).json({ error: 'ইউজার ডেটা পার্স এরর' });
   }
 
   next();
@@ -90,16 +85,15 @@ function getTodayDate() {
   return new Date().toISOString().split('T')[0];
 }
 
-// সোশ্যাল টাস্ক কনফিগারেশন
 const TASKS = [
   { id: 'task_channel_1', title: 'আমাদের অফিশিয়াল চ্যানেলে জয়েন করুন', link: 'https://t.me/CryptoDropToday', reward: 1.00 },
   { id: 'task_channel_2', title: 'পার্টনার টেলিগ্রাম গ্রুপে জয়েন করুন', link: 'https://t.me/telegram', reward: 0.50 },
   { id: 'task_youtube_1', title: 'ইউটিউব চ্যানেল সাবস্ক্রাইব করুন', link: 'https://youtube.com/@gaming_craze04', reward: 0.50 }
 ];
 
-// ====================================================================
-// ১. রুট (Root) পাথ: সরাসরি সম্পূর্ণ ফ্রন্টএন্ড UI সার্ভ করা
-// ====================================================================
+// ==========================================
+// ১. রুট ফ্রন্টএন্ড UI
+// ==========================================
 app.get('/', (req, res) => {
   res.send(`<!DOCTYPE html>
 <html lang="bn">
@@ -107,11 +101,7 @@ app.get('/', (req, res) => {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>BD Ad Earn</title>
-  
-  <!-- Telegram WebApp SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-  <!-- Adsgram SDK সক্রিয় করা হলো -->
   <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
 
   <style>
@@ -119,23 +109,12 @@ app.get('/', (req, res) => {
       --bg-primary: #0a0f1d;
       --card-bg: #131c31;
       --card-border: #1e2942;
-      --accent-cyan: #00d2ff;
-      --accent-blue: #3a7bd5;
-      --accent-green: #10b981;
-      --accent-amber: #f59e0b;
       --text-main: #f8fafc;
       --text-muted: #94a3b8;
     }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      -webkit-tap-highlight-color: transparent;
-    }
-
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hind Siliguri", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background-color: var(--bg-primary);
       color: var(--text-main);
       padding: 14px;
@@ -144,14 +123,7 @@ app.get('/', (req, res) => {
       gap: 12px;
       line-height: 1.5;
     }
-
-    .top-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 4px;
-    }
-
+    .top-header { display: flex; align-items: center; justify-content: space-between; padding: 4px; }
     .brand-title {
       font-size: 18px;
       font-weight: 700;
@@ -159,7 +131,6 @@ app.get('/', (req, res) => {
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
-
     .badge-live {
       font-size: 11px;
       padding: 3px 8px;
@@ -168,25 +139,21 @@ app.get('/', (req, res) => {
       color: #34d399;
       font-weight: 600;
     }
-
     .card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 14px;
       padding: 16px;
     }
-
     .balance-card {
       text-align: center;
       background: linear-gradient(180deg, #16223d 0%, #111a2e 100%);
     }
-
     .balance-title { font-size: 12px; color: var(--text-muted); text-transform: uppercase; }
     .balance-value { font-size: 34px; font-weight: 800; color: #38bdf8; margin: 4px 0 8px; }
     .progress-bar-bg { width: 100%; height: 6px; background: #1e293b; border-radius: 10px; overflow: hidden; margin: 6px 0; }
     .progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #00d2ff, #10b981); transition: width 0.3s; }
     .progress-label { font-size: 11px; color: var(--text-muted); display: flex; justify-content: space-between; }
-
     button {
       width: 100%;
       padding: 12px;
@@ -195,29 +162,18 @@ app.get('/', (req, res) => {
       font-size: 14px;
       font-weight: bold;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
     }
-
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-bonus { background: linear-gradient(135deg, #059669, #10b981); color: #fff; margin-bottom: 8px; }
     .btn-ad { background: linear-gradient(135deg, #0284c7, #00d2ff); color: #fff; }
     .btn-withdraw { background: linear-gradient(135deg, #10b981, #059669); color: #fff; margin-top: 10px; }
     .btn-copy { background: #f59e0b; color: #000; margin-top: 8px; }
-
     .card-heading { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
     .task-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
     .task-item:last-child { border-bottom: none; }
     .task-name { font-size: 13px; font-weight: 600; }
     .task-reward { font-size: 12px; color: #38bdf8; font-weight: bold; }
     .btn-task-action { background: #1e293b; color: #fff; border: 1px solid #334155; padding: 6px 12px; font-size: 12px; width: auto; }
-
     input, select {
       width: 100%;
       padding: 10px;
@@ -228,7 +184,6 @@ app.get('/', (req, res) => {
       color: #fff;
       font-size: 13px;
     }
-
     .hint-text { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
   </style>
 </head>
@@ -239,7 +194,6 @@ app.get('/', (req, res) => {
     <div class="badge-live">● অনলাইন</div>
   </div>
 
-  <!-- ব্যালেন্স ও মূল বাটন -->
   <div class="card balance-card">
     <div class="balance-title">মোট ব্যালেন্স</div>
     <div class="balance-value"><span id="balance">0.00</span> ৳</div>
@@ -258,13 +212,11 @@ app.get('/', (req, res) => {
     <button class="btn-ad" id="adBtn" onclick="triggerAd()">📺 ভিডিও অ্যাড দেখুন (+০.০৭৫ ৳)</button>
   </div>
 
-  <!-- সোশ্যাল টাস্ক -->
   <div class="card">
     <div class="card-heading">📋 সোশ্যাল টাস্ক</div>
     <div id="taskList"><div style="font-size: 12px; color: var(--text-muted);">টাস্ক লোড হচ্ছে...</div></div>
   </div>
 
-  <!-- রেফারেল সেকশন -->
   <div class="card">
     <div class="card-heading" style="color: #f59e0b;">👥 রেফার বোনাস (১.০০ ৳)</div>
     <p class="hint-text">বন্ধু রেফার লিংকে যুক্ত হয়ে <b>৪০টি অ্যাড</b> দেখলে আপনার ব্যালেন্সে ১ টাকা বোনাস সরাসরি যোগ হবে।</p>
@@ -272,7 +224,6 @@ app.get('/', (req, res) => {
     <button class="btn-copy" onclick="copyLink()">🔗 রেফার লিংক কপি করুন</button>
   </div>
 
-  <!-- উত্তোলন সেকশন -->
   <div class="card">
     <div class="card-heading" style="color: #00d2ff;">💳 টাকা উত্তোলন (মিনিমাম ১০ ৳)</div>
     <select id="method">
@@ -287,69 +238,66 @@ app.get('/', (req, res) => {
   </div>
 
   <script>
-    // ========================================================
-    // আপনার কনফিগারেশন সেটিংস (ব্লক আইডি ৪৬৩২১ বসানো হয়েছে)
-    // ========================================================
-    const BOT_USERNAME = 'BDAdEarnBot'; 
-    const ADSGRAM_BLOCK_ID = '46321'; 
-    // ========================================================
+    var BOT_USERNAME = 'BDAdEarnBot'; 
+    var ADSGRAM_BLOCK_ID = '46321'; 
 
-    const tg = window.Telegram?.WebApp;
-    if (tg) { tg.expand(); tg.ready(); }
-
-    const initData = tg?.initData || '';
-    coKYzqKKYSg' = tg?.initDataUnsafe?.user?.id || 'demo';
-
-    // সরাসরি মিনি অ্যাপ ডিপ-লিংক
-    document.getElementById('refLink').value = 'https://t.me/' + BOT_USERNAME + '/app?startapp=' + userId;
-
-    async function syncUserData() {
-      try {
-        const res = await fetch('/api/user', { headers: { 'x-telegram-init-data': initData } });
-        const data = await res.json();
-        if (data.points !== undefined) {
-          document.getElementById('balance').innerText = parseFloat(data.points).toFixed(2);
-          const ads = data.ads_today || 0;
-          document.getElementById('adCount').innerText = ads;
-          document.getElementById('progressFill').style.width = Math.min((ads / 200) * 100, 100) + '%';
-
-          if (!data.can_checkin) {
-            const btn = document.getElementById('checkinBtn');
-            btn.innerText = '✅ আজকের বোনাস নেওয়া শেষ';
-            btn.disabled = true;
-          }
-        }
-      } catch (e) { console.error(e); }
+    var tg = window.Telegram ? window.Telegram.WebApp : null;
+    if (tg) { 
+      try { tg.expand(); tg.ready(); } catch(e) {}
     }
 
-    // Adsgram Rewarded Video অ্যাড প্লেয়ার
+    var initData = (tg && tg.initData) ? tg.initData : '';
+    var userId = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user.id : 'demo';
+
+    var refInput = document.getElementById('refLink');
+    if (refInput) {
+      refInput.value = 'https://t.me/' + BOT_USERNAME + '/app?startapp=' + userId;
+    }
+
+    function syncUserData() {
+      fetch('/api/user', { headers: { 'x-telegram-init-data': initData } })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data && data.points !== undefined) {
+            document.getElementById('balance').innerText = parseFloat(data.points).toFixed(2);
+            var ads = data.ads_today || 0;
+            document.getElementById('adCount').innerText = ads;
+            document.getElementById('progressFill').style.width = Math.min((ads / 200) * 100, 100) + '%';
+
+            if (!data.can_checkin) {
+              var btn = document.getElementById('checkinBtn');
+              btn.innerText = '✅ আজকের বোনাস নেওয়া শেষ';
+              btn.disabled = true;
+            }
+          }
+        })
+        .catch(function(err) { console.error(err); });
+    }
+
     function triggerAd() {
-      const adBtn = document.getElementById('adBtn');
+      var adBtn = document.getElementById('adBtn');
 
       if (window.Adsgram) {
-        const AdController = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
+        var AdController = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
         AdController.show()
-          .then(() => {
-            // পুরো ভিডিও শেষ হলে রিওয়ার্ড পাবে
+          .then(function() {
             claimReward();
             startAdCooldown(adBtn);
           })
-          .catch((result) => {
-            // ইউজার ভিডিও কেটে দিলে বা অ্যাড না থাকলে
-            alert('পুরো ভিডিও বিজ্ঞাপনটি দেখলে তবেই ব্যালেন্স যোগ হবে!');
+          .catch(function(err) {
+            alert('পুরো ভিডিও বিজ্ঞাপনটি দেখলে তবেই রিওয়ার্ড পাবেন!');
           });
       } else {
-        alert('বিজ্ঞাপন লোড হতে পারেনি। নেটওয়ার্ক চেক করে আবার চেষ্টা করুন।');
+        alert('অ্যাড সার্ভার রেডি হচ্ছে, কয়েক সেকেন্ড পর আবার চেষ্টা করুন।');
       }
     }
 
-    // ৫ সেকেন্ডের অ্যান্টি-স্প্যাম কুলডাউন
     function startAdCooldown(btn) {
-      let seconds = 5;
+      var seconds = 5;
       btn.disabled = true;
-      const originalText = btn.innerText;
+      var originalText = btn.innerText;
 
-      const timer = setInterval(() => {
+      var timer = setInterval(function() {
         btn.innerText = '⏳ অপেক্ষা করুন (' + seconds + 's)';
         seconds--;
         if (seconds < 0) {
@@ -360,110 +308,127 @@ app.get('/', (req, res) => {
       }, 1000);
     }
 
-    async function claimReward() {
-      try {
-        const res = await fetch('/api/reward', {
-          method: 'POST',
-          headers: { 'x-telegram-init-data': initData }
-        });
-        const data = await res.json();
+    function claimReward() {
+      fetch('/api/reward', {
+        method: 'POST',
+        headers: { 'x-telegram-init-data': initData }
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
         if (data.success) {
           syncUserData();
         } else {
           alert(data.error || 'অ্যাড দেখা সম্ভব হয়নি');
         }
-      } catch (e) { alert('সার্ভার সমস্যা'); }
+      })
+      .catch(function() { alert('সার্ভার সমস্যা'); });
     }
 
-    async function claimDailyBonus() {
-      try {
-        const res = await fetch('/api/daily-bonus', {
-          method: 'POST',
-          headers: { 'x-telegram-init-data': initData }
-        });
-        const data = await res.json();
+    function claimDailyBonus() {
+      fetch('/api/daily-bonus', {
+        method: 'POST',
+        headers: { 'x-telegram-init-data': initData }
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
         if (data.success) {
           alert('অভিনন্দন! ডেইলি বোনাস (+০.৫০ ৳) যোগ হয়েছে।');
           syncUserData();
-        } else { alert(data.error); }
-      } catch (e) { alert('সার্ভার সমস্যা'); }
+        } else { 
+          alert(data.error); 
+        }
+      })
+      .catch(function() { alert('সার্ভার সমস্যা'); });
     }
 
-    async function loadTasks() {
-      try {
-        const res = await fetch('/api/tasks', { headers: { 'x-telegram-init-data': initData } });
-        const tasks = await res.json();
-        const container = document.getElementById('taskList');
-        container.innerHTML = '';
+    function loadTasks() {
+      fetch('/api/tasks', { headers: { 'x-telegram-init-data': initData } })
+        .then(function(res) { return res.json(); })
+        .then(function(tasks) {
+          var container = document.getElementById('taskList');
+          container.innerHTML = '';
 
-        tasks.forEach(task => {
-          const div = document.createElement('div');
-          div.className = 'task-item';
-          div.innerHTML = \`
-            <div>
-              <div class="task-name">\${task.title}</div>
-              <div class="task-reward">+\${parseFloat(task.reward).toFixed(2)} ৳</div>
-            </div>
-            <div>
-              \${task.completed 
-                ? '<span style="color:#10b981;font-size:12px;font-weight:bold;">✓ সম্পন্ন</span>' 
-                : \`<button class="btn-task-action" onclick="doTask('\${task.id}', '\${task.link}')">শুরু করুন</button>\`}
-            </div>
-          \`;
-          container.appendChild(div);
-        });
-      } catch (e) { console.error(e); }
+          tasks.forEach(function(task) {
+            var div = document.createElement('div');
+            div.className = 'task-item';
+
+            var rightHtml = task.completed 
+              ? '<span style="color:#10b981;font-size:12px;font-weight:bold;">✓ সম্পন্ন</span>' 
+              : '<button class="btn-task-action" onclick="doTask(\\'' + task.id + '\\', \\'' + task.link + '\\')">শুরু করুন</button>';
+
+            div.innerHTML = '<div>' +
+              '<div class="task-name">' + task.title + '</div>' +
+              '<div class="task-reward">+' + parseFloat(task.reward).toFixed(2) + ' ৳</div>' +
+              '</div><div>' + rightHtml + '</div>';
+
+            container.appendChild(div);
+          });
+        })
+        .catch(function(err) { console.error(err); });
     }
 
     function doTask(taskId, link) {
-      if (tg && tg.openLink) tg.openLink(link);
-      else window.open(link, '_blank');
+      if (tg && tg.openLink) {
+        tg.openLink(link);
+      } else {
+        window.open(link, '_blank');
+      }
 
-      setTimeout(async () => {
-        try {
-          const res = await fetch('/api/claim-task', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-telegram-init-data': initData },
-            body: JSON.stringify({ task_id: taskId })
-          });
-          const data = await res.json();
+      setTimeout(function() {
+        fetch('/api/claim-task', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-telegram-init-data': initData },
+          body: JSON.stringify({ task_id: taskId })
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
           if (data.success) {
             alert('টাস্ক সম্পন্ন হয়েছে! +' + data.reward + ' ৳ যোগ হয়েছে।');
             syncUserData();
             loadTasks();
-          } else { alert(data.error); }
-        } catch (e) { alert('সার্ভার সমস্যা'); }
+          } else { 
+            alert(data.error); 
+          }
+        })
+        .catch(function() { alert('সার্ভার সমস্যা'); });
       }, 4000);
     }
 
-    async function submitWithdraw() {
-      const method = document.getElementById('method').value;
-      const phone = document.getElementById('phone').value.trim();
-      const amount = parseFloat(document.getElementById('amount').value);
+    function submitWithdraw() {
+      var method = document.getElementById('method').value;
+      var phone = document.getElementById('phone').value.trim();
+      var amount = parseFloat(document.getElementById('amount').value);
 
       if (!phone || isNaN(amount)) return alert('সঠিক তথ্য লিখুন।');
       if (amount < 10) return alert('সর্বনিম্ন উত্তোলন ১০ টাকা।');
 
-      try {
-        const res = await fetch('/api/withdraw', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-telegram-init-data': initData },
-          body: JSON.stringify({ method, phone, amount })
-        });
-        const data = await res.json();
+      fetch('/api/withdraw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-telegram-init-data': initData },
+        body: JSON.stringify({ method: method, phone: phone, amount: amount })
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
         if (data.success) {
           alert('উত্তোলন অনুরোধ সফল হয়েছে!');
           syncUserData();
           document.getElementById('phone').value = '';
           document.getElementById('amount').value = '';
-        } else { alert(data.error || 'ব্যর্থ হয়েছে'); }
-      } catch (e) { alert('সার্ভার সমস্যা'); }
+        } else { 
+          alert(data.error || 'ব্যর্থ হয়েছে'); 
+        }
+      })
+      .catch(function() { alert('সার্ভার সমস্যা'); });
     }
 
     function copyLink() {
-      const copyText = document.getElementById('refLink');
-      navigator.clipboard.writeText(copyText.value);
-      alert('রেফার লিংক কপি হয়েছে!');
+      var copyText = document.getElementById('refLink');
+      if (copyText) {
+        copyText.select();
+        copyText.setSelectionRange(0, 99999);
+        navigator.clipboard.writeText(copyText.value);
+        alert('রেফার লিংক কপি হয়েছে!');
+      }
     }
 
     syncUserData();
@@ -473,10 +438,9 @@ app.get('/', (req, res) => {
 </html>`);
 });
 
-// ====================================================================
-// ২. ব্যাকএন্ড API রাউটসমূহ
-// ====================================================================
-
+// ==========================================
+// ২. ব্যাকএন্ড এপিআই
+// ==========================================
 app.get('/api/user', verifyTelegramData, (req, res) => {
   const userId = req.user.id.toString();
   const username = req.user.username || req.user.first_name || 'User';
@@ -532,7 +496,7 @@ app.post('/api/daily-bonus', verifyTelegramData, (req, res) => {
 app.post('/api/reward', verifyTelegramData, (req, res) => {
   const userId = req.user.id.toString();
   const today = getTodayDate();
-  const REWARD_AMOUNT = 0.075; // ২০০ অ্যাডে ১৫ ৳ (আপনার লাভ ৫ ৳)
+  const REWARD_AMOUNT = 0.075;
   const DAILY_LIMIT = 200;
 
   db.get('SELECT * FROM users WHERE telegram_id = ?', [userId], (err, user) => {
@@ -550,7 +514,6 @@ app.post('/api/reward', verifyTelegramData, (req, res) => {
       (updateErr) => {
         if (updateErr) return res.status(500).json({ error: 'Reward Error' });
 
-        // রেফার বোনাস: বন্ধু ৪০টি অ্যাড দেখলে রেফারকারী পাবে ১ টাকা
         if (user.total_ads + 1 === 40 && user.referred_by && user.referral_rewarded === 0) {
           db.run('UPDATE users SET points = points + 1.00 WHERE telegram_id = ?', [user.referred_by]);
           db.run('UPDATE users SET referral_rewarded = 1 WHERE telegram_id = ?', [userId]);
@@ -623,10 +586,9 @@ app.post('/api/withdraw', verifyTelegramData, (req, res) => {
   });
 });
 
-// ====================================================================
-// ৩. অ্যাডমিন কন্ট্রোল এপিআই ও ড্যাশবোর্ড (/admin)
-// ====================================================================
-
+// ==========================================
+// ৩. অ্যাডমিন কন্ট্রোল (/admin)
+// ==========================================
 app.get('/api/admin/withdrawals', (req, res) => {
   if (req.query.secret !== ADMIN_PASSWORD) {
     return res.status(403).json({ error: 'ভুল পাসওয়ার্ড!' });
@@ -678,47 +640,47 @@ app.get('/admin', (req, res) => {
   <div id="list">লোড বাটনে চাপ দিন...</div>
 
   <script>
-    async function loadWithdrawals() {
-      const pass = document.getElementById('pass').value;
-      const res = await fetch('/api/admin/withdrawals?secret=' + encodeURIComponent(pass));
-      const data = await res.json();
-      if(data.error) return alert(data.error);
-
-      const container = document.getElementById('list');
-      if(data.length === 0) {
-        container.innerHTML = 'কোনো উইথড্র রিকোয়েস্ট পাওয়া যায়নি।';
-        return;
-      }
-
-      container.innerHTML = '';
-      data.forEach(item => {
-        container.innerHTML += \`
-          <div class="item">
-            <p><b>আইডি:</b> #\${item.id} | <b>ইউজার আইডি:</b> \${item.telegram_id}</p>
-            <p><b>মেথড:</b> \${item.method.toUpperCase()} | <b>নম্বর:</b> \${item.phone}</p>
-            <p><b>টাকা:</b> \${item.amount_bdt} ৳ | <b>স্ট্যাটাস:</b> <span class="status-\${item.status}">\${item.status}</span></p>
-            \${item.status === 'pending' 
-              ? \`<button class="btn-ok" onclick="markSuccessful(\${item.id})">পেমেন্ট কমপ্লিট করুন (Mark Success)</button>\` 
-              : ''}
-          </div>
-        \`;
-      });
+    function loadWithdrawals() {
+      var pass = document.getElementById('pass').value;
+      fetch('/api/admin/withdrawals?secret=' + encodeURIComponent(pass))
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if(data.error) return alert(data.error);
+          var container = document.getElementById('list');
+          if(data.length === 0) {
+            container.innerHTML = 'কোনো উইথড্র রিকোয়েস্ট নেই।';
+            return;
+          }
+          container.innerHTML = '';
+          data.forEach(function(item) {
+            var btnHtml = item.status === 'pending'
+              ? '<button class="btn-ok" onclick="markSuccessful(' + item.id + ')">পেমেন্ট কমপ্লিট করুন</button>'
+              : '';
+            container.innerHTML += '<div class="item">' +
+              '<p><b>আইডি:</b> #' + item.id + ' | <b>ইউজার:</b> ' + item.telegram_id + '</p>' +
+              '<p><b>মেথড:</b> ' + item.method.toUpperCase() + ' | <b>নম্বর:</b> ' + item.phone + '</p>' +
+              '<p><b>টাকা:</b> ' + item.amount_bdt + ' ৳ | <b>স্ট্যাটাস:</b> <span class="status-' + item.status + '">' + item.status + '</span></p>' +
+              btnHtml + '</div>';
+          });
+        });
     }
 
-    async function markSuccessful(id) {
-      const pass = document.getElementById('pass').value;
-      const res = await fetch('/api/admin/update-status', {
+    function markSuccessful(id) {
+      var pass = document.getElementById('pass').value;
+      fetch('/api/admin/update-status', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ secret: pass, id: id, status: 'successful' })
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        if(data.success) {
+          alert('স্ট্যাটাস সফল করা হয়েছে!');
+          loadWithdrawals();
+        } else {
+          alert(data.error);
+        }
       });
-      const data = await res.json();
-      if(data.success) {
-        alert('পেমেন্ট সফল হিসেবে চিহ্নিত করা হয়েছে!');
-        loadWithdrawals();
-      } else {
-        alert(data.error);
-      }
     }
   </script>
 </body>
