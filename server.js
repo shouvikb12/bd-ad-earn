@@ -76,7 +76,7 @@ function getTodayDate() {
 const TASKS = [
   { id: 'task_channel_1', title: 'আমাদের অফিশিয়াল চ্যানেলে জয়েন করুন', link: 'https://t.me/CryptoDropToday', reward: 1.00 },
   { id: 'task_channel_2', title: 'পার্টনার টেলিগ্রাম গ্রুপে জয়েন করুন', link: 'https://t.me/telegram', reward: 0.50 },
-  { id: 'task_youtube_1', title: 'ইউটিউব চ্যানেল সাবস্ক্রাইব করুন', link: 'https://youtube.com', reward: 0.50 }
+  { id: 'task_youtube_1', title: 'ইউটিউব চ্যানেল সাবস্ক্রাইব করুন', link: 'https://youtube.com/@gaming_craze04', reward: 0.50 }
 ];
 
 // ==========================================
