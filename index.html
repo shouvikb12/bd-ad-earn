@@ -4,10 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>BD Ad Earn</title>
+  
   <!-- Telegram WebApp SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <!-- Adsgram SDK (প্রয়োজনে আনকমেন্ট করুন) -->
+
+  <!-- ======================================================== -->
+  <!-- Adsgram SDK (Adsgram ব্যবহার শুরু করলে নিচের লাইন আনকমেন্ট করুন) -->
   <!-- <script src="https://sad.adsgram.ai/js/sad.min.js"></script> -->
+  <!-- ======================================================== -->
 
   <style>
     :root {
@@ -40,18 +44,16 @@
       line-height: 1.5;
     }
 
-    /* Top Brand Header */
     .top-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 6px 4px 4px;
+      padding: 4px;
     }
 
-    .top-header .brand-title {
+    .brand-title {
       font-size: 18px;
       font-weight: 700;
-      letter-spacing: 0.3px;
       background: linear-gradient(90deg, #00d2ff, #3a7bd5);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -63,204 +65,93 @@
       border-radius: 20px;
       background: rgba(16, 185, 129, 0.15);
       color: #34d399;
-      border: 1px solid rgba(16, 185, 129, 0.3);
       font-weight: 600;
     }
 
-    /* Cards */
     .card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
-      border-radius: 16px;
+      border-radius: 14px;
       padding: 16px;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
     }
 
-    /* Balance Section */
     .balance-card {
       text-align: center;
       background: linear-gradient(180deg, #16223d 0%, #111a2e 100%);
-      border: 1px solid #233354;
     }
 
-    .balance-title {
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: var(--text-muted);
-    }
+    .balance-title { font-size: 12px; color: var(--text-muted); text-transform: uppercase; }
+    .balance-value { font-size: 34px; font-weight: 800; color: #38bdf8; margin: 4px 0 8px; }
+    .progress-bar-bg { width: 100%; height: 6px; background: #1e293b; border-radius: 10px; overflow: hidden; margin: 6px 0; }
+    .progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #00d2ff, #10b981); transition: width 0.3s; }
+    .progress-label { font-size: 11px; color: var(--text-muted); display: flex; justify-content: space-between; }
 
-    .balance-value {
-      font-size: 34px;
-      font-weight: 800;
-      color: #38bdf8;
-      margin: 4px 0 8px;
-    }
-
-    .ad-progress-box {
-      margin-bottom: 14px;
-    }
-
-    .progress-bar-bg {
-      width: 100%;
-      height: 6px;
-      background: #1e293b;
-      border-radius: 10px;
-      overflow: hidden;
-      margin: 6px 0;
-    }
-
-    .progress-fill {
-      width: 0%;
-      height: 100%;
-      background: linear-gradient(90deg, #00d2ff, #10b981);
-      transition: width 0.4s ease;
-    }
-
-    .progress-label {
-      font-size: 11px;
-      color: var(--text-muted);
-      display: flex;
-      justify-content: space-between;
-    }
-
-    /* Buttons */
-    .btn {
+    button {
       width: 100%;
       padding: 12px;
       border: none;
-      border-radius: 10px;
+      border-radius: 8px;
       font-size: 14px;
-      font-weight: 700;
+      font-weight: bold;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 6px;
-      transition: transform 0.1s ease, filter 0.2s ease;
     }
 
-    .btn:active {
-      transform: scale(0.98);
-      filter: brightness(0.9);
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
-    .btn-bonus {
-      background: linear-gradient(135deg, #059669, #10b981);
-      color: #ffffff;
-      margin-bottom: 8px;
+    .btn-bonus { background: linear-gradient(135deg, #059669, #10b981); color: #fff; margin-bottom: 8px; }
+    .btn-ad { background: linear-gradient(135deg, #0284c7, #00d2ff); color: #fff; }
+    .btn-withdraw { background: linear-gradient(135deg, #10b981, #059669); color: #fff; margin-top: 10px; }
+    .btn-copy { background: #f59e0b; color: #000; margin-top: 8px; }
+
+    .card-heading { font-size: 14px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+    .task-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .task-item:last-child { border-bottom: none; }
+    .task-name { font-size: 13px; font-weight: 600; }
+    .task-reward { font-size: 12px; color: #38bdf8; font-weight: bold; }
+    .btn-task-action { background: #1e293b; color: #fff; border: 1px solid #334155; padding: 6px 12px; font-size: 12px; width: auto; }
+
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 6px;
+      border-radius: 6px;
+      border: 1px solid var(--card-border);
+      background: #0d1527;
+      color: #fff;
+      font-size: 13px;
     }
 
-    .btn-ad {
-      background: linear-gradient(135deg, #0284c7, #00d2ff);
-      color: #ffffff;
-    }
+    .hint-text { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
 
-    .btn-withdraw {
-      background: linear-gradient(135deg, #10b981, #059669);
-      color: #ffffff;
-      margin-top: 10px;
-    }
-
-    .btn-copy {
-      background: #f59e0b;
-      color: #0b1120;
-      margin-top: 8px;
-    }
-
-    /* Task List */
-    .card-heading {
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--text-main);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-bottom: 12px;
-    }
-
-    .task-item {
+    /* হিস্ট্রি আইটেম ডিজাইন */
+    .history-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    }
-
-    .task-item:last-child {
-      border-bottom: none;
-      padding-bottom: 0;
-    }
-
-    .task-details {
-      max-width: 68%;
-    }
-
-    .task-name {
-      font-size: 13px;
-      font-weight: 600;
-      color: #e2e8f0;
-    }
-
-    .task-reward {
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
       font-size: 12px;
-      color: #38bdf8;
-      font-weight: 700;
-      margin-top: 2px;
     }
-
-    .btn-task-action {
-      background: #1e293b;
-      border: 1px solid #334155;
-      color: #f8fafc;
-      padding: 6px 12px;
-      border-radius: 8px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
+    .history-item:last-child { border-bottom: none; }
+    .status-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: bold;
     }
-
-    .btn-task-action:active {
-      background: #334155;
-    }
-
-    .task-done {
-      font-size: 12px;
-      font-weight: 700;
-      color: #34d399;
-      display: flex;
-      align-items: center;
-      gap: 3px;
-    }
-
-    /* Inputs */
-    input, select {
-      width: 100%;
-      padding: 11px 12px;
-      background: #0d1527;
-      border: 1px solid #233354;
-      border-radius: 8px;
-      color: #fff;
-      font-size: 13px;
-      outline: none;
-      margin-top: 6px;
-    }
-
-    input:focus, select:focus {
-      border-color: #38bdf8;
-    }
-
-    .hint-text {
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-top: 6px;
-      line-height: 1.4;
-    }
+    .status-pending { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+    .status-successful { background: rgba(16, 185, 129, 0.2); color: #34d399; }
   </style>
 </head>
 <body>
 
-  <!-- Top Header -->
   <div class="top-header">
     <div class="brand-title">🇧🇩 BD Ad Earn</div>
     <div class="badge-live">● অনলাইন</div>
@@ -268,10 +159,10 @@
 
   <!-- Wallet & Main Actions -->
   <div class="card balance-card">
-    <div class="balance-title">মোট অর্জিত ব্যালেন্স</div>
-    <div class="balance-value"><span id="balance">0.00</span> <span style="font-size: 20px;">৳</span></div>
-    
-    <div class="ad-progress-box">
+    <div class="balance-title">মোট ব্যালেন্স</div>
+    <div class="balance-value"><span id="balance">0.00</span> ৳</div>
+
+    <div style="margin-bottom: 14px;">
       <div class="progress-bar-bg">
         <div class="progress-fill" id="progressFill"></div>
       </div>
@@ -281,168 +172,111 @@
       </div>
     </div>
 
-    <button class="btn btn-bonus" id="checkinBtn" onclick="claimDailyBonus()">
-      🎁 ডেইলি বোনাস নিন (+০.৫০ ৳)
-    </button>
-    
-    <button class="btn btn-ad" onclick="triggerAd()">
-      📺 ভিডিও অ্যাড দেখুন (+০.০৭৫ ৳)
-    </button>
+    <button class="btn-bonus" id="checkinBtn" onclick="claimDailyBonus()">🎁 ডেইলি বোনাস নিন (+০.৫০ ৳)</button>
+    <button class="btn-ad" id="adBtn" onclick="triggerAd()">📺 ভিডিও অ্যাড দেখুন (+০.০৭৫ ৳)</button>
   </div>
 
-  <!-- Tasks Section -->
+  <!-- Social Tasks -->
   <div class="card">
     <div class="card-heading">📋 সোশ্যাল টাস্ক</div>
-    <div id="taskList">
-      <div style="font-size: 12px; color: var(--text-muted);">টাস্ক লোড হচ্ছে...</div>
-    </div>
+    <div id="taskList"><div style="font-size: 12px; color: var(--text-muted);">টাস্ক লোড হচ্ছে...</div></div>
   </div>
 
-  <!-- Referral Section -->
+  <!-- Referral -->
   <div class="card">
-    <div class="card-heading" style="color: var(--accent-amber);">👥 রেফার ও ফ্রেন্ড বোনাস (১.০০ ৳)</div>
-    <p class="hint-text">বন্ধু রেফার লিংকে যুক্ত হয়ে <b>৪০টি অ্যাড</b> দেখলে আপনার ব্যালেন্সে ১ টাকা বোনাস সরাসরি যোগ হবে।</p>
+    <div class="card-heading" style="color: #f59e0b;">👥 রেফার বোনাস (১.০০ ৳)</div>
+    <p class="hint-text">বন্ধু রেফার লিংকে যুক্ত হয়ে <b>৪০টি অ্যাড</b> দেখলে আপনার ব্যালেন্সে ১ টাকা বোনাস সরাসরি জমা হবে।</p>
     <input type="text" id="refLink" readonly />
-    <button class="btn btn-copy" onclick="copyLink()">🔗 রেফার লিংক কপি করুন</button>
+    <button class="btn-copy" onclick="copyLink()">🔗 রেফার লিংক কপি করুন</button>
   </div>
 
-  <!-- Payout Section -->
+  <!-- Withdraw -->
   <div class="card">
-    <div class="card-heading" style="color: var(--accent-cyan);">💳 টাকা উত্তোলন (মিনিমাম ১০ ৳)</div>
+    <div class="card-heading" style="color: #00d2ff;">💳 টাকা উত্তোলন (মিনিমাম ১০ ৳)</div>
     <select id="method">
       <option value="bkash">বিকাশ (Personal)</option>
       <option value="nagad">নগদ (Personal)</option>
       <option value="upay">উপায় (Personal)</option>
     </select>
     <input type="tel" id="phone" placeholder="মোবাইল নম্বর লিখুন (০১xxxxxxxxx)" />
-    <input type="number" id="amount" placeholder="উত্তোলনের পরিমাণ (মিনিমাম ১০ ৳)" />
-    <button class="btn btn-withdraw" onclick="submitWithdraw()">উত্তোলন অনুরোধ পাঠান</button>
-    <p class="hint-text">অনুরোধের ২৪-৪৮ ঘণ্টার মধ্যে নিরাপত্তা যাচাই শেষে অ্যাকাউন্টে টাকা পাঠিয়ে দেওয়া হয়।</p>
+    <input type="number" id="amount" placeholder="পরিমাণ লিখুন (মিনিমাম ১০ ৳)" />
+    <button class="btn-withdraw" onclick="submitWithdraw()">উত্তোলন অনুরোধ পাঠান</button>
+    <p class="hint-text">অনুরোধের ২৪-৪৮ ঘণ্টার মধ্যে ম্যানুয়ালি ভেরিফাই করে পেমেন্ট পাঠিয়ে দেওয়া হয়।</p>
   </div>
 
   <script>
+    // ==========================================
+    // আপনার কনফিগারেশন
+    // ==========================================
+    const BOT_USERNAME = 'BDAdEarnOfficial_bot'; // আপনার বটের ইউজারনেম
+    const ADSGRAM_BLOCK_ID = ''; // Adsgram থেকে পাওয়া আইডি এখানে বসাবেন (যেমন: "1234")
+    // ==========================================
+
     const tg = window.Telegram?.WebApp;
-    if (tg) {
-      tg.expand();
-      tg.ready();
-    }
+    if (tg) { tg.expand(); tg.ready(); }
 
     const initData = tg?.initData || '';
     const userId = tg?.initDataUnsafe?.user?.id || 'demo';
-    
-    // আপনার সঠিক Bot Username দিয়ে আপডেট করে নিন
-    const BOT_USERNAME = 'BDAdEarnOfficial_bot'; 
+
     document.getElementById('refLink').value = 'https://t.me/' + BOT_USERNAME + '?start=' + userId;
 
     async function syncUserData() {
       try {
-        const res = await fetch('/api/user', {
-          headers: { 'x-telegram-init-data': initData }
-        });
+        const res = await fetch('/api/user', { headers: { 'x-telegram-init-data': initData } });
         const data = await res.json();
         if (data.points !== undefined) {
           document.getElementById('balance').innerText = parseFloat(data.points).toFixed(2);
           const ads = data.ads_today || 0;
           document.getElementById('adCount').innerText = ads;
-          
-          // প্রগ্রেস বার ক্যালকুলেশন (২০০ এর ভেতর কতটুকু)
-          const percent = Math.min((ads / 200) * 100, 100);
-          document.getElementById('progressFill').style.width = percent + '%';
+          document.getElementById('progressFill').style.width = Math.min((ads / 200) * 100, 100) + '%';
 
           if (!data.can_checkin) {
             const btn = document.getElementById('checkinBtn');
             btn.innerText = '✅ আজকের বোনাস নেওয়া শেষ';
-            btn.style.opacity = '0.55';
             btn.disabled = true;
           }
         }
-      } catch (e) {
-        console.error(e);
-      }
+      } catch (e) { console.error(e); }
     }
 
-    async function loadTasks() {
-      try {
-        const res = await fetch('/api/tasks', {
-          headers: { 'x-telegram-init-data': initData }
-        });
-        const tasks = await res.json();
-        const container = document.getElementById('taskList');
-        container.innerHTML = '';
-
-        tasks.forEach(task => {
-          const div = document.createElement('div');
-          div.className = 'task-item';
-          div.innerHTML = `
-            <div class="task-details">
-              <div class="task-name">${task.title}</div>
-              <div class="task-reward">+${parseFloat(task.reward).toFixed(2)} ৳</div>
-            </div>
-            <div>
-              ${task.completed 
-                ? '<span class="task-done">✓ সম্পন্ন</span>' 
-                : `<button class="btn-task-action" onclick="doTask('${task.id}', '${task.link}')">শুরু করুন</button>`}
-            </div>
-          `;
-          container.appendChild(div);
-        });
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    function doTask(taskId, link) {
-      if (tg && tg.openLink) {
-        tg.openLink(link);
-      } else {
-        window.open(link, '_blank');
-      }
-
-      setTimeout(async () => {
-        try {
-          const res = await fetch('/api/claim-task', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-telegram-init-data': initData
-            },
-            body: JSON.stringify({ task_id: taskId })
-          });
-          const data = await res.json();
-          if (data.success) {
-            alert('টাস্ক সম্পন্ন হয়েছে! +' + data.reward + ' টাকা ব্যালেন্সে যুক্ত হয়েছে।');
-            syncUserData();
-            loadTasks();
-          } else {
-            alert(data.error || 'টাস্ক সম্পন্ন হয়নি');
-          }
-        } catch (e) {
-          alert('সার্ভারে সমস্যা হয়েছে');
-        }
-      }, 4000);
-    }
-
-    async function claimDailyBonus() {
-      try {
-        const res = await fetch('/api/daily-bonus', {
-          method: 'POST',
-          headers: { 'x-telegram-init-data': initData }
-        });
-        const data = await res.json();
-        if (data.success) {
-          alert('অভিনন্দন! ডেইলি বোনাস (+০.৫০ ৳) যোগ হয়েছে।');
-          syncUserData();
-        } else {
-          alert(data.error);
-        }
-      } catch (e) {
-        alert('সার্ভার সমস্যা');
-      }
-    }
-
+    // অ্যাড দেখার ফাংশন (টাইমার এবং আসল অ্যাড কন্ট্রোল সহ)
     function triggerAd() {
-      // Adsgram আসল কোড লাগালে এখানে কল করবেন
+      const adBtn = document.getElementById('adBtn');
+
+      // যদি Adsgram ব্লক আইডি দেওয়া থাকে
+      if (ADSGRAM_BLOCK_ID && window.Adsgram) {
+        const AdController = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
+        AdController.show()
+          .then(() => {
+            claimReward();
+            startAdCooldown(adBtn);
+          })
+          .catch(() => {
+            alert('পুরো বিজ্ঞাপনটি দেখলে তবেই রিওয়ার্ড পাবেন!');
+          });
+        return;
+      }
+
+      // টেস্ট মোড: সরাসরি রিওয়ার্ড
       claimReward();
+      startAdCooldown(adBtn);
+    }
+
+    // প্রতি অ্যাডের পর ৫ সেকেন্ডের কুলডাউন টাইমার
+    function startAdCooldown(btn) {
+      let seconds = 5;
+      btn.disabled = true;
+      const originalText = btn.innerText;
+
+      const timer = setInterval(() => {
+        btn.innerText = `⏳ অপেক্ষা করুন (${seconds}s)`;
+        seconds--;
+        if (seconds < 0) {
+          clearInterval(timer);
+          btn.disabled = false;
+          btn.innerText = originalText;
+        }
+      }, 1000);
     }
 
     async function claimReward() {
@@ -457,9 +291,68 @@
         } else {
           alert(data.error || 'অ্যাড দেখা সম্ভব হয়নি');
         }
-      } catch (e) {
-        alert('সার্ভার সমস্যা');
-      }
+      } catch (e) { alert('সার্ভার সমস্যা'); }
+    }
+
+    async function claimDailyBonus() {
+      try {
+        const res = await fetch('/api/daily-bonus', {
+          method: 'POST',
+          headers: { 'x-telegram-init-data': initData }
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('অভিনন্দন! ডেইলি বোনাস (+০.৫০ ৳) যোগ হয়েছে।');
+          syncUserData();
+        } else { alert(data.error); }
+      } catch (e) { alert('সার্ভার সমস্যা'); }
+    }
+
+    async function loadTasks() {
+      try {
+        const res = await fetch('/api/tasks', { headers: { 'x-telegram-init-data': initData } });
+        const tasks = await res.json();
+        const container = document.getElementById('taskList');
+        container.innerHTML = '';
+
+        tasks.forEach(task => {
+          const div = document.createElement('div');
+          div.className = 'task-item';
+          div.innerHTML = `
+            <div>
+              <div class="task-name">${task.title}</div>
+              <div class="task-reward">+${parseFloat(task.reward).toFixed(2)} ৳</div>
+            </div>
+            <div>
+              ${task.completed 
+                ? '<span style="color:#10b981;font-size:12px;font-weight:bold;">✓ সম্পন্ন</span>' 
+                : `<button class="btn-task-action" onclick="doTask('${task.id}', '${task.link}')">শুরু করুন</button>`}
+            </div>
+          `;
+          container.appendChild(div);
+        });
+      } catch (e) { console.error(e); }
+    }
+
+    function doTask(taskId, link) {
+      if (tg && tg.openLink) tg.openLink(link);
+      else window.open(link, '_blank');
+
+      setTimeout(async () => {
+        try {
+          const res = await fetch('/api/claim-task', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-telegram-init-data': initData },
+            body: JSON.stringify({ task_id: taskId })
+          });
+          const data = await res.json();
+          if (data.success) {
+            alert('টাস্ক সম্পন্ন হয়েছে! +' + data.reward + ' ৳ যোগ হয়েছে।');
+            syncUserData();
+            loadTasks();
+          } else { alert(data.error); }
+        } catch (e) { alert('সার্ভার সমস্যা'); }
+      }, 4000);
     }
 
     async function submitWithdraw() {
@@ -473,10 +366,7 @@
       try {
         const res = await fetch('/api/withdraw', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-telegram-init-data': initData
-          },
+          headers: { 'Content-Type': 'application/json', 'x-telegram-init-data': initData },
           body: JSON.stringify({ method, phone, amount })
         });
         const data = await res.json();
@@ -485,12 +375,8 @@
           syncUserData();
           document.getElementById('phone').value = '';
           document.getElementById('amount').value = '';
-        } else {
-          alert(data.error || 'অনুরোধ ব্যর্থ হয়েছে');
-        }
-      } catch (e) {
-        alert('সার্ভার সমস্যা');
-      }
+        } else { alert(data.error || 'ব্যর্থ হয়েছে'); }
+      } catch (e) { alert('সার্ভার সমস্যা'); }
     }
 
     function copyLink() {
