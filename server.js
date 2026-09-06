@@ -1,5 +1,5 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const mongoose = require('mongoose');
 const cors = require('cors');
 
 const app = express();
@@ -7,46 +7,45 @@ app.use(cors());
 app.use(express.json());
 
 const ADMIN_PASSWORD = "adminpass123";
-const db = new sqlite3.Database('./database.sqlite');
+const MONGO_URI = process.env.MONGO_URI || "আপনার_MONGODB_ATLAS_URI_এখানে_দিন";
 
-db.serialize(() => {
-  db.run(`
-    CREATE TABLE IF NOT EXISTS users (
-      telegram_id TEXT PRIMARY KEY,
-      username TEXT,
-      points REAL DEFAULT 0,
-      ads_today INTEGER DEFAULT 0,
-      last_ad_date TEXT DEFAULT '',
-      last_checkin_date TEXT DEFAULT '',
-      total_ads INTEGER DEFAULT 0,
-      referred_by TEXT DEFAULT NULL,
-      referral_rewarded INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
+// ==========================================
+// MongoDB কানেকশন ও স্কিমা
+// ==========================================
+mongoose.connect(MONGO_URI)
+  .then(() => console.log('MongoDB Atlas Connected'))
+  .catch(err => console.error('MongoDB Connection Error:', err));
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS completed_tasks (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      telegram_id TEXT,
-      task_id TEXT,
-      completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(telegram_id, task_id)
-    )
-  `);
-
-  db.run(`
-    CREATE TABLE IF NOT EXISTS withdrawals (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      telegram_id TEXT,
-      method TEXT,
-      phone TEXT,
-      amount_bdt REAL,
-      status TEXT DEFAULT 'pending',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
+const UserSchema = new mongoose.Schema({
+  telegram_id: { type: String, required: true, unique: true },
+  username: { type: String, default: 'User' },
+  points: { type: Number, default: 0 },
+  last_checkin_date: { type: String, default: '' },
+  total_ads: { type: Number, default: 0 },
+  referred_by: { type: String, default: null },
+  referral_rewarded: { type: Boolean, default: false },
+  created_at: { type: Date, default: Date.now }
 });
+
+const TaskSchema = new mongoose.Schema({
+  telegram_id: { type: String, required: true },
+  task_id: { type: String, required: true }
+});
+TaskSchema.index({ telegram_id: 1, task_id: 1 }, { unique: true });
+
+const WithdrawalSchema = new mongoose.Schema({
+  telegram_id: { type: String, required: true },
+  method: { type: String, required: true },
+  phone: { type: String, required: true },
+  amount_bdt: { type: Number, required: true },
+  status: { type: String, default: 'pending' }, // pending, successful
+  tx_note: { type: String, default: '' },
+  created_at: { type: Date, default: Date.now }
+});
+
+const User = mongoose.model('User', UserSchema);
+const CompletedTask = mongoose.model('CompletedTask', TaskSchema);
+const Withdrawal = mongoose.model('Withdrawal', WithdrawalSchema);
 
 function getSafeUser(req, res, next) {
   const initData = req.headers['x-telegram-init-data'] || '';
@@ -78,7 +77,7 @@ const TASKS = [
 ];
 
 // ==========================================
-// ১. রুট ফ্রন্টএন্ড UI (মিনি অ্যাপ)
+// ১. ফ্রন্টএন্ড UI (মিনি অ্যাপ)
 // ==========================================
 app.get('/', (req, res) => {
   res.send(`<!DOCTYPE html>
@@ -137,9 +136,8 @@ app.get('/', (req, res) => {
     }
     .balance-title { font-size: 12px; color: var(--text-muted); text-transform: uppercase; }
     .balance-value { font-size: 34px; font-weight: 800; color: #38bdf8; margin: 4px 0 8px; }
-    .progress-bar-bg { width: 100%; height: 6px; background: #1e293b; border-radius: 10px; overflow: hidden; margin: 6px 0; }
-    .progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #00d2ff, #10b981); transition: width 0.3s; }
-    .progress-label { font-size: 11px; color: var(--text-muted); display: flex; justify-content: space-between; }
+    .ad-stat { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; }
+    
     button {
       width: 100%;
       padding: 12px;
@@ -153,6 +151,7 @@ app.get('/', (req, res) => {
     .btn-bonus { background: linear-gradient(135deg, #059669, #10b981); color: #fff; margin-bottom: 8px; }
     .btn-ad { background: linear-gradient(135deg, #0284c7, #00d2ff); color: #fff; }
     .btn-withdraw { background: linear-gradient(135deg, #10b981, #059669); color: #fff; margin-top: 10px; }
+    .btn-share { background: #3b82f6; color: #fff; margin-top: 8px; }
     .btn-copy { background: #f59e0b; color: #000; margin-top: 8px; }
     .card-heading { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
     .task-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
@@ -171,6 +170,7 @@ app.get('/', (req, res) => {
       font-size: 13px;
     }
     .hint-text { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+    .btn-group { display: flex; gap: 8px; }
   </style>
 </head>
 <body>
@@ -183,16 +183,7 @@ app.get('/', (req, res) => {
   <div class="card balance-card">
     <div class="balance-title">মোট ব্যালেন্স</div>
     <div class="balance-value"><span id="balance">0.00</span> &#2547;</div>
-
-    <div style="margin-bottom: 14px;">
-      <div class="progress-bar-bg">
-        <div class="progress-fill" id="progressFill"></div>
-      </div>
-      <div class="progress-label">
-        <span>দৈনিক অ্যাড কোটা</span>
-        <span><b id="adCount">0</b> / 200 সম্পন্ন</span>
-      </div>
-    </div>
+    <div class="ad-stat">মোট দেখা অ্যাড: <b id="totalAds">0</b> টি (আনলিমিটেড)</div>
 
     <button class="btn-bonus" id="checkinBtn" onclick="claimDailyBonus()">&#127873; ডেইলি বোনাস নিন (+০.৫০ &#2547;)</button>
     <button class="btn-ad" id="adBtn" onclick="triggerAd()">&#128250; ভিডিও অ্যাড দেখুন (+০.০৭৫ &#2547;)</button>
@@ -207,20 +198,23 @@ app.get('/', (req, res) => {
     <div class="card-heading" style="color: #f59e0b;">&#128101; রেফার বোনাস (১.০০ &#2547;)</div>
     <p class="hint-text">বন্ধু রেফার লিংকে যুক্ত হয়ে <b>৪০টি অ্যাড</b> দেখলে আপনার ব্যালেন্সে ১ টাকা সরাসরি যোগ হবে।</p>
     <input type="text" id="refLink" readonly />
-    <button class="btn-copy" onclick="copyLink()">&#128279; রেফার লিংক কপি করুন</button>
+    <div class="btn-group">
+      <button class="btn-share" onclick="shareTelegram()">🚀 ফরোয়ার্ড / শেয়ার</button>
+      <button class="btn-copy" onclick="copyLink()">📋 কপি</button>
+    </div>
   </div>
 
   <div class="card">
-    <div class="card-heading" style="color: #00d2ff;">&#128179; টাকা উত্তোলন (মিনিমাম ১০ &#2547;)</div>
+    <div class="card-heading" style="color: #00d2ff;">&#128179; টাকা উত্তোলন (মিনিমাম ৫ &#2547;)</div>
     <select id="method">
       <option value="bkash">বিকাশ (Personal)</option>
       <option value="nagad">নগদ (Personal)</option>
       <option value="upay">উপায় (Personal)</option>
     </select>
     <input type="tel" id="phone" placeholder="মোবাইল নম্বর লিখুন (০১xxxxxxxxx)" />
-    <input type="number" id="amount" placeholder="পরিমাণ লিখুন (মিনিমাম ১০ &#2547;)" />
+    <input type="number" id="amount" placeholder="পরিমাণ লিখুন (মিনিমাম ৫ &#2547;)" />
     <button class="btn-withdraw" onclick="submitWithdraw()">উত্তোলন অনুরোধ পাঠান</button>
-    <p class="hint-text">অনুরোধের ২৪-৪৮ ঘণ্টার মধ্যে ম্যানুয়ালি যাচাই করে পেমেন্ট সম্পন্ন করা হয়।</p>
+    <p class="hint-text">অনুরোধ যাচাই করে ২৪-৪৮ ঘণ্টার মধ্যে পেমেন্ট সম্পন্ন করা হয়।</p>
   </div>
 
   <script>
@@ -234,10 +228,21 @@ app.get('/', (req, res) => {
 
     var initData = (tg && tg.initData) ? tg.initData : '';
     var userId = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user.id : '562005';
+    var fullRefLink = 'https://t.me/' + BOT_USERNAME + '/app?startapp=' + userId;
 
     var refInput = document.getElementById('refLink');
     if (refInput) {
-      refInput.value = 'https://t.me/' + BOT_USERNAME + '/app?startapp=' + userId;
+      refInput.value = fullRefLink;
+    }
+
+    function shareTelegram() {
+      var shareText = encodeURIComponent('🔥 ঘরে বসে ভিডিও অ্যাড দেখে ও সহজ কাজ করে টাকা আয় করুন! প্রতি রেফারে নিশ্চিত বোনাস। এখনই জয়েন করুন: ' + fullRefLink);
+      var shareUrl = 'https://t.me/share/url?url=' + encodeURIComponent(fullRefLink) + '&text=' + shareText;
+      if (tg && tg.openTelegramLink) {
+        tg.openTelegramLink(shareUrl);
+      } else {
+        window.open(shareUrl, '_blank');
+      }
     }
 
     function syncUserData() {
@@ -246,9 +251,7 @@ app.get('/', (req, res) => {
         .then(function(data) {
           if (data && data.points !== undefined) {
             document.getElementById('balance').innerText = parseFloat(data.points).toFixed(2);
-            var ads = data.ads_today || 0;
-            document.getElementById('adCount').innerText = ads;
-            document.getElementById('progressFill').style.width = Math.min((ads / 200) * 100, 100) + '%';
+            document.getElementById('totalAds').innerText = data.total_ads || 0;
 
             if (!data.can_checkin) {
               var btn = document.getElementById('checkinBtn');
@@ -391,7 +394,7 @@ app.get('/', (req, res) => {
       var amount = parseFloat(document.getElementById('amount').value);
 
       if (!phone || isNaN(amount)) return alert('সঠিক তথ্য লিখুন।');
-      if (amount < 10) return alert('সর্বনিম্ন উত্তোলন ১০ টাকা।');
+      if (amount < 5) return alert('সর্বনিম্ন উত্তোলন ৫ টাকা।');
 
       fetch('/api/withdraw', {
         method: 'POST',
@@ -430,7 +433,7 @@ app.get('/', (req, res) => {
 });
 
 // ==========================================
-// ২. সরাসরি ভিজ্যুয়াল অ্যাডমিন ড্যাশবোর্ড (/admin)
+// ২. অ্যাডমিন ড্যাশবোর্ড (/admin)
 // ==========================================
 app.get('/admin', (req, res) => {
   res.send(`<!DOCTYPE html>
@@ -441,65 +444,98 @@ app.get('/admin', (req, res) => {
   <title>অ্যাডমিন প্যানেল - BD Ad Earn</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #080d1a; color: #fff; padding: 16px; margin: 0; }
-    h2 { font-size: 20px; color: #38bdf8; margin-bottom: 16px; }
-    .input-box { display: flex; gap: 8px; margin-bottom: 16px; }
-    input { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #1e293b; background: #0f172a; color: #fff; font-size: 14px; }
-    button { padding: 12px 18px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+    h2 { font-size: 20px; color: #38bdf8; margin-bottom: 12px; }
+    .input-box { display: flex; gap: 8px; margin-bottom: 12px; }
+    input, select { padding: 10px; border-radius: 8px; border: 1px solid #1e293b; background: #0f172a; color: #fff; font-size: 13px; }
+    button { padding: 10px 16px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
     .btn-load { background: #38bdf8; color: #000; }
+    .filters { display: flex; gap: 8px; margin-bottom: 16px; }
+    .btn-filter { background: #1e293b; color: #94a3b8; padding: 6px 14px; font-size: 12px; }
+    .btn-filter.active { background: #0284c7; color: #fff; }
     .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 10px; padding: 14px; margin-bottom: 12px; }
-    .card p { margin: 6px 0; font-size: 13px; }
+    .card p { margin: 4px 0; font-size: 13px; }
     .status-pending { color: #f59e0b; font-weight: bold; }
     .status-successful { color: #10b981; font-weight: bold; }
-    .btn-action { background: #10b981; color: #fff; width: 100%; margin-top: 8px; padding: 10px; border-radius: 6px; font-weight: bold; border: none; cursor: pointer; }
+    .btn-action { background: #10b981; color: #fff; width: 100%; margin-top: 8px; padding: 8px; border-radius: 6px; font-weight: bold; border: none; cursor: pointer; }
+    .note-input { width: 100%; box-sizing: border-box; margin-top: 6px; }
   </style>
 </head>
 <body>
   <h2>🔐 উইথড্রল অ্যাডমিন কন্ট্রোল</h2>
   <div class="input-box">
-    <input type="password" id="pass" placeholder="অ্যাডমিন পাসওয়ার্ড লিখুন" value="adminpass123">
-    <button class="btn-load" onclick="loadWithdrawals()">ডাটা লোড করুন</button>
+    <input type="password" id="pass" placeholder="অ্যাডমিন পাসওয়ার্ড" value="adminpass123" style="flex:1;">
+    <button class="btn-load" onclick="loadWithdrawals()">ডাটা লোড</button>
   </div>
 
-  <div id="list">পাসওয়ার্ড দিয়ে লোড বাটনে চাপ দিন...</div>
+  <div class="filters">
+    <button class="btn-filter active" id="f-all" onclick="setFilter('all')">সবগুলো</button>
+    <button class="btn-filter" id="f-pending" onclick="setFilter('pending')">বাকি আছে (Pending)</button>
+    <button class="btn-filter" id="f-successful" onclick="setFilter('successful')">দেওয়া হয়েছে (Paid)</button>
+  </div>
+
+  <div id="list">ডাটা লোড হচ্ছে...</div>
 
   <script>
+    var currentFilter = 'all';
+    var allData = [];
+
+    function setFilter(f) {
+      currentFilter = f;
+      document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
+      document.getElementById('f-' + f).classList.add('active');
+      renderList();
+    }
+
     function loadWithdrawals() {
       var pass = document.getElementById('pass').value;
       fetch('/api/admin/withdrawals?secret=' + encodeURIComponent(pass))
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
+        .then(res => res.json())
+        .then(data => {
           if (data.error) return alert(data.error);
-          var container = document.getElementById('list');
-          if (data.length === 0) {
-            container.innerHTML = '<p style="color:#94a3b8;">কোনো উইথড্র রিকোয়েস্ট পেন্ডিং নেই।</p>';
-            return;
-          }
-          container.innerHTML = '';
-          data.forEach(function(item) {
-            var btn = item.status === 'pending'
-              ? '<button class="btn-action" onclick="markDone(' + item.id + ')">পেমেন্ট কমপ্লিট করুন (Mark Success)</button>'
-              : '';
-            container.innerHTML += '<div class="card">' +
-              '<p><b>আইডি:</b> #' + item.id + ' | <b>ইউজার টেলিগ্রাম আইডি:</b> ' + item.telegram_id + '</p>' +
-              '<p><b>মেথড:</b> ' + item.method.toUpperCase() + ' | <b>নম্বর:</b> ' + item.phone + '</p>' +
-              '<p><b>পরিমাণ:</b> ' + item.amount_bdt + ' ৳ | <b>স্ট্যাটাস:</b> <span class="status-' + item.status + '">' + item.status + '</span></p>' +
-              btn + '</div>';
-          });
+          allData = data;
+          renderList();
         })
-        .catch(function() { alert('ডাটা লোড হতে পারেনি!'); });
+        .catch(() => alert('ডাটা লোড ব্যর্থ'));
+    }
+
+    function renderList() {
+      var container = document.getElementById('list');
+      var list = allData.filter(item => currentFilter === 'all' ? true : item.status === currentFilter);
+
+      if (list.length === 0) {
+        container.innerHTML = '<p style="color:#94a3b8;">কোনো রেকর্ড পাওয়া যায়নি।</p>';
+        return;
+      }
+
+      container.innerHTML = '';
+      list.forEach(item => {
+        var actionHtml = item.status === 'pending'
+          ? '<input type="text" id="note-' + item._id + '" class="note-input" placeholder="TrxID বা নোট (ঐচ্ছিক)" />' +
+            '<button class="btn-action" onclick="markDone(\\'' + item._id + '\\')">পেমেন্ট সম্পন্ন করুন (Mark Paid)</button>'
+          : '<p style="color:#10b981;font-size:12px;margin-top:6px;">✓ পেমেন্ট ক্লিয়ার্ড ' + (item.tx_note ? '(' + item.tx_note + ')' : '') + '</p>';
+
+        container.innerHTML += '<div class="card">' +
+          '<p><b>আইডি:</b> #' + item._id.substring(item._id.length - 6) + ' | <b>ইউজার:</b> ' + item.telegram_id + '</p>' +
+          '<p><b>মেথড:</b> ' + item.method.toUpperCase() + ' | <b>নম্বর:</b> ' + item.phone + '</p>' +
+          '<p><b>পরিমাণ:</b> ' + item.amount_bdt + ' ৳ | <b>স্ট্যাটাস:</b> <span class="status-' + item.status + '">' + item.status + '</span></p>' +
+          actionHtml +
+          '</div>';
+      });
     }
 
     function markDone(id) {
       var pass = document.getElementById('pass').value;
+      var note = document.getElementById('note-' + id) ? document.getElementById('note-' + id).value : '';
+
       fetch('/api/admin/update-status', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ secret: pass, id: id, status: 'successful' })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secret: pass, id: id, status: 'successful', tx_note: note })
       })
-      .then(function(res) { return res.json(); })
-      .then(function(data) {
+      .then(res => res.json())
+      .then(data => {
         if (data.success) {
-          alert('পেমেন্ট সফল হিসেবে আপডেট হয়েছে!');
+          alert('পেমেন্ট সফল হিসেবে আপডেট করা হয়েছে!');
           loadWithdrawals();
         } else {
           alert(data.error);
@@ -507,7 +543,6 @@ app.get('/admin', (req, res) => {
       });
     }
 
-    // পেজ লোড হলেই স্বয়ংক্রিয়ভাবে লোড নেবে
     loadWithdrawals();
   </script>
 </body>
@@ -517,118 +552,113 @@ app.get('/admin', (req, res) => {
 // ==========================================
 // ৩. ব্যাকএন্ড API রাউটসমূহ
 // ==========================================
-app.get('/api/user', getSafeUser, (req, res) => {
+app.get('/api/user', getSafeUser, async (req, res) => {
   const userId = req.user.id.toString();
   const username = req.user.username || req.user.first_name || 'User';
   const referrerId = req.startParam && req.startParam !== userId ? req.startParam : null;
   const today = getTodayDate();
 
-  db.get('SELECT * FROM users WHERE telegram_id = ?', [userId], (err, row) => {
-    if (err) return res.status(500).json({ error: 'DB Error' });
-
-    if (!row) {
-      db.run(
-        'INSERT INTO users (telegram_id, username, points, ads_today, last_ad_date, referred_by) VALUES (?, ?, 0, 0, ?, ?)',
-        [userId, username, today, referrerId],
-        (insertErr) => {
-          if (insertErr) return res.status(500).json({ error: 'Insert Error' });
-          return res.json({ telegram_id: userId, points: 0, ads_today: 0, can_checkin: true });
-        }
-      );
-    } else {
-      let adsToday = row.ads_today;
-      if (row.last_ad_date !== today) {
-        adsToday = 0;
-        db.run('UPDATE users SET ads_today = 0, last_ad_date = ? WHERE telegram_id = ?', [today, userId]);
-      }
-      const canCheckin = row.last_checkin_date !== today;
-      return res.json({ ...row, ads_today: adsToday, can_checkin: canCheckin });
+  try {
+    let user = await User.findOne({ telegram_id: userId });
+    if (!user) {
+      user = await User.create({
+        telegram_id: userId,
+        username: username,
+        points: 0,
+        referred_by: referrerId
+      });
     }
-  });
+    const canCheckin = user.last_checkin_date !== today;
+    res.json({
+      telegram_id: user.telegram_id,
+      points: user.points,
+      total_ads: user.total_ads,
+      can_checkin: canCheckin
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'DB Error' });
+  }
 });
 
-app.post('/api/daily-bonus', getSafeUser, (req, res) => {
+app.post('/api/daily-bonus', getSafeUser, async (req, res) => {
   const userId = req.user.id.toString();
   const today = getTodayDate();
   const BONUS = 0.50;
 
-  db.get('SELECT last_checkin_date FROM users WHERE telegram_id = ?', [userId], (err, user) => {
-    if (err || !user) return res.status(500).json({ error: 'User Error' });
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    if (!user) return res.status(404).json({ error: 'User Error' });
     if (user.last_checkin_date === today) {
-      return res.status(400).json({ error: 'আজকের বোনাস আপনি ইতিমধ্যে নিয়ে নিয়েছেন!' });
+      return res.status(400).json({ error: 'আজকের বোনাস নেওয়া শেষ!' });
     }
 
-    db.run(
-      'UPDATE users SET points = points + ?, last_checkin_date = ? WHERE telegram_id = ?',
-      [BONUS, today, userId],
-      (upErr) => {
-        if (upErr) return res.status(500).json({ error: 'Bonus Error' });
-        res.json({ success: true, reward: BONUS });
-      }
-    );
-  });
+    user.points += BONUS;
+    user.last_checkin_date = today;
+    await user.save();
+
+    res.json({ success: true, reward: BONUS });
+  } catch (e) {
+    res.status(500).json({ error: 'Bonus Error' });
+  }
 });
 
-app.post('/api/reward', getSafeUser, (req, res) => {
+app.post('/api/reward', getSafeUser, async (req, res) => {
   const userId = req.user.id.toString();
-  const today = getTodayDate();
   const REWARD_AMOUNT = 0.075;
-  const DAILY_LIMIT = 200;
 
-  db.get('SELECT * FROM users WHERE telegram_id = ?', [userId], (err, user) => {
-    if (err || !user) return res.status(500).json({ error: 'User Error' });
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    if (!user) return res.status(404).json({ error: 'User Error' });
 
-    let currentAds = user.last_ad_date === today ? user.ads_today : 0;
-    if (currentAds >= DAILY_LIMIT) {
-      return res.status(400).json({ error: 'আজকের ২০০টি অ্যাডের লিমিট শেষ! কাল আবার চেষ্টা করুন।' });
+    user.points += REWARD_AMOUNT;
+    user.total_ads += 1;
+
+    // রেফার বোনাস: ইউজার ৪০টি অ্যাড দেখলে রেফারকারী পাবে ১ টাকা
+    if (user.total_ads === 40 && user.referred_by && !user.referral_rewarded) {
+      await User.updateOne({ telegram_id: user.referred_by }, { $inc: { points: 1.00 } });
+      user.referral_rewarded = true;
     }
 
-    const updatedAds = currentAds + 1;
-    db.run(
-      'UPDATE users SET points = points + ?, ads_today = ?, last_ad_date = ?, total_ads = total_ads + 1 WHERE telegram_id = ?',
-      [REWARD_AMOUNT, updatedAds, today, userId],
-      (updateErr) => {
-        if (updateErr) return res.status(500).json({ error: 'Reward Error' });
-
-        if (user.total_ads + 1 === 40 && user.referred_by && user.referral_rewarded === 0) {
-          db.run('UPDATE users SET points = points + 1.00 WHERE telegram_id = ?', [user.referred_by]);
-          db.run('UPDATE users SET referral_rewarded = 1 WHERE telegram_id = ?', [userId]);
-        }
-
-        res.json({ success: true, reward: REWARD_AMOUNT, ads_today: updatedAds });
-      }
-    );
-  });
+    await user.save();
+    res.json({ success: true, reward: REWARD_AMOUNT, total_ads: user.total_ads });
+  } catch (e) {
+    res.status(500).json({ error: 'Reward Error' });
+  }
 });
 
-app.get('/api/tasks', getSafeUser, (req, res) => {
+app.get('/api/tasks', getSafeUser, async (req, res) => {
   const userId = req.user.id.toString();
-  db.all('SELECT task_id FROM completed_tasks WHERE telegram_id = ?', [userId], (err, rows) => {
-    if (err) return res.status(500).json({ error: 'Task Error' });
-    const completedIds = rows.map((r) => r.task_id);
-    const taskList = TASKS.map((t) => ({ ...t, completed: completedIds.includes(t.id) }));
+  try {
+    const completed = await CompletedTask.find({ telegram_id: userId });
+    const completedIds = completed.map(t => t.task_id);
+    const taskList = TASKS.map(t => ({ ...t, completed: completedIds.includes(t.id) }));
     res.json(taskList);
-  });
+  } catch (e) {
+    res.status(500).json({ error: 'Task Error' });
+  }
 });
 
-app.post('/api/claim-task', getSafeUser, (req, res) => {
+app.post('/api/claim-task', getSafeUser, async (req, res) => {
   const userId = req.user.id.toString();
   const { task_id } = req.body;
-  const task = TASKS.find((t) => t.id === task_id);
+  const task = TASKS.find(t => t.id === task_id);
 
-  if (!task) return res.status(400).json({ error: 'ভুল টাস্ক নির্বাচন' });
+  if (!task) return res.status(400).json({ error: 'ভুল টাস্ক' });
 
-  db.run('INSERT INTO completed_tasks (telegram_id, task_id) VALUES (?, ?)', [userId, task_id], function (err) {
-    if (err) return res.status(400).json({ error: 'আপনি ইতিমধ্যে এই টাস্কটি সম্পন্ন করেছেন!' });
+  try {
+    const existing = await CompletedTask.findOne({ telegram_id: userId, task_id });
+    if (existing) return res.status(400).json({ error: 'টাস্কটি ইতিমধ্যে সম্পন্ন করেছেন!' });
 
-    db.run('UPDATE users SET points = points + ? WHERE telegram_id = ?', [task.reward, userId], (upErr) => {
-      if (upErr) return res.status(500).json({ error: 'Task Reward Error' });
-      res.json({ success: true, reward: task.reward });
-    });
-  });
+    await CompletedTask.create({ telegram_id: userId, task_id });
+    await User.updateOne({ telegram_id: userId }, { $inc: { points: task.reward } });
+
+    res.json({ success: true, reward: task.reward });
+  } catch (e) {
+    res.status(500).json({ error: 'Task Reward Error' });
+  }
 });
 
-app.post('/api/withdraw', getSafeUser, (req, res) => {
+app.post('/api/withdraw', getSafeUser, async (req, res) => {
   const userId = req.user.id.toString();
   const { method, phone, amount } = req.body;
 
@@ -637,51 +667,56 @@ app.post('/api/withdraw', getSafeUser, (req, res) => {
   }
 
   const numericAmount = parseFloat(amount);
-  if (isNaN(numericAmount) || numericAmount < 10) {
-    return res.status(400).json({ error: 'সর্বনিম্ন উত্তোলন ১০ টাকা' });
+  if (isNaN(numericAmount) || numericAmount < 5) {
+    return res.status(400).json({ error: 'সর্বনিম্ন উত্তোলন ৫ টাকা' });
   }
 
-  db.get('SELECT points FROM users WHERE telegram_id = ?', [userId], (err, user) => {
-    if (err || !user) return res.status(500).json({ error: 'User Error' });
-    if (user.points < numericAmount) {
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    if (!user || user.points < numericAmount) {
       return res.status(400).json({ error: 'পর্যাপ্ত ব্যালেন্স নেই' });
     }
 
-    db.run('UPDATE users SET points = points - ? WHERE telegram_id = ?', [numericAmount, userId], (deductErr) => {
-      if (deductErr) return res.status(500).json({ error: 'Deduct Error' });
+    user.points -= numericAmount;
+    await user.save();
 
-      db.run(
-        'INSERT INTO withdrawals (telegram_id, method, phone, amount_bdt) VALUES (?, ?, ?, ?)',
-        [userId, method, phone, numericAmount],
-        (insertErr) => {
-          if (insertErr) return res.status(500).json({ error: 'Queue Error' });
-          res.json({ success: true, message: 'উইথড্র রিকোয়েস্ট সফলভাবে জমা হয়েছে!' });
-        }
-      );
+    await Withdrawal.create({
+      telegram_id: userId,
+      method,
+      phone,
+      amount_bdt: numericAmount
     });
-  });
+
+    res.json({ success: true, message: 'উইথড্র রিকোয়েস্ট সফলভাবে জমা হয়েছে!' });
+  } catch (e) {
+    res.status(500).json({ error: 'Withdrawal Error' });
+  }
 });
 
 // অ্যাডমিন কন্ট্রোল এপিআই
-app.get('/api/admin/withdrawals', (req, res) => {
+app.get('/api/admin/withdrawals', async (req, res) => {
   if (req.query.secret !== ADMIN_PASSWORD) {
     return res.status(403).json({ error: 'ভুল পাসওয়ার্ড!' });
   }
-  db.all('SELECT * FROM withdrawals ORDER BY id DESC', (err, rows) => {
-    if (err) return res.status(500).json({ error: 'DB Error' });
+  try {
+    const rows = await Withdrawal.find().sort({ created_at: -1 });
     res.json(rows);
-  });
+  } catch (e) {
+    res.status(500).json({ error: 'DB Error' });
+  }
 });
 
-app.post('/api/admin/update-status', (req, res) => {
-  const { secret, id, status } = req.body;
+app.post('/api/admin/update-status', async (req, res) => {
+  const { secret, id, status, tx_note } = req.body;
   if (secret !== ADMIN_PASSWORD) {
     return res.status(403).json({ error: 'ভুল পাসওয়ার্ড!' });
   }
-  db.run('UPDATE withdrawals SET status = ? WHERE id = ?', [status, id], function (err) {
-    if (err) return res.status(500).json({ error: 'Update Error' });
-    res.json({ success: true, message: `উইথড্র #${id} স্ট্যাটাস ${status} করা হয়েছে` });
-  });
+  try {
+    await Withdrawal.findByIdAndUpdate(id, { status, tx_note: tx_note || '' });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Update Error' });
+  }
 });
 
 const PORT = process.env.PORT || 3000;
